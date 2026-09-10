@@ -68,6 +68,7 @@ export const demoClients = [
 export const demoRutina = {
   nombre: 'Push/Pull/Legs',
   semanaActual: 8,
+  semana_actual: 8,
   diasSemana: 3,
   activa: true,
   dias: [

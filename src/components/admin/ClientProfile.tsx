@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { ArrowLeft, Dumbbell, Weight, Apple, MessageSquare, FileText } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Dumbbell, Weight, Apple, MessageSquare, FileText, Loader2 } from 'lucide-react'
 import { demoClients, demoRutina, demoPeso, demoNutricion, demoChat } from '../../data/demo'
+import { fetchClienteData, isDemoMode, type ClienteDisplay } from '../../lib/supabase'
 import RutinaTab from './tabs/RutinaTab'
 import PesoTab from './tabs/PesoTab'
 import NutricionTab from './tabs/NutricionTab'
@@ -24,9 +25,36 @@ const tabs: { id: Tab; label: string; icon: React.ComponentType<{ style?: React.
   { id: 'reportes', label: 'Reportes', icon: FileText },
 ]
 
+const isRealId = (id: string) => !id.startsWith('client-') && !id.startsWith('admin-')
+
 export default function ClientProfile({ clientId, onBack, onToast }: ClientProfileProps) {
   const [activeTab, setActiveTab] = useState<Tab>('datos')
-  const client = demoClients.find(c => c.id === clientId) || demoClients[0]
+  const [realClient, setRealClient] = useState<ClienteDisplay | null>(null)
+  const [loadingClient, setLoadingClient] = useState(false)
+
+  const isReal = isRealId(clientId) && !isDemoMode()
+
+  useEffect(() => {
+    if (!isReal) return
+    setLoadingClient(true)
+    fetchClienteData(clientId).then(data => {
+      setRealClient(data)
+      setLoadingClient(false)
+    })
+  }, [clientId, isReal])
+
+  const demoClient = demoClients.find(c => c.id === clientId) || demoClients[0]
+  const client: ClienteDisplay = isReal
+    ? (realClient ?? { id: clientId, nombre: '...', email: '', objetivo: '', edad: 0, pesoInicial: 0, activo: true, iniciales: '..', color: '#F5611A', semanas: 0, cumplimiento: 0 })
+    : { ...demoClient, email: '' }
+
+  if (loadingClient) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="animate-spin" style={{ width: 28, height: 28, color: '#F5611A' }} />
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -51,7 +79,10 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">{client.nombre}</h1>
-            <p className="text-sm" style={{ color: '#6B7280' }}>{client.objetivo} · {client.edad} años</p>
+            <p className="text-sm" style={{ color: '#6B7280' }}>
+              {client.objetivo} · {client.edad} años
+              {client.email && <span className="ml-2">· {client.email}</span>}
+            </p>
           </div>
           <span
             className="ml-auto text-sm px-3 py-1 rounded-full font-medium"
@@ -93,9 +124,9 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
             {[
               { label: 'Nombre', value: client.nombre },
               { label: 'Edad', value: `${client.edad} años` },
-              { label: 'Objetivo', value: client.objetivo },
+              { label: 'Objetivo', value: client.objetivo || '—' },
               { label: 'Estado', value: client.activo ? 'Activo' : 'Inactivo' },
-              { label: 'Peso Inicial', value: `${client.pesoInicial} kg` },
+              { label: 'Peso Inicial', value: client.pesoInicial ? `${client.pesoInicial} kg` : '—' },
               { label: 'Semanas Activo', value: `${client.semanas} semanas` },
             ].map(({ label, value }) => (
               <div key={label} className="p-3 rounded-lg" style={{ background: '#1E2130' }}>
@@ -106,11 +137,30 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
           </div>
         </div>
       )}
-      {activeTab === 'rutina' && <RutinaTab rutina={demoRutina} onToast={onToast} />}
-      {activeTab === 'peso' && <PesoTab pesoData={demoPeso} onToast={onToast} />}
+      {activeTab === 'rutina' && (
+        <RutinaTab
+          rutina={demoRutina}
+          clientId={isReal ? clientId : undefined}
+          onToast={onToast}
+        />
+      )}
+      {activeTab === 'peso' && (
+        <PesoTab
+          pesoData={demoPeso}
+          clientId={isReal ? clientId : undefined}
+          onToast={onToast}
+        />
+      )}
       {activeTab === 'nutricion' && <NutricionTab nutricion={demoNutricion} />}
       {activeTab === 'chat' && <ChatTab messages={demoChat} currentUserId="admin-001" onToast={onToast} />}
-      {activeTab === 'reportes' && <ReportesTab client={client} pesoData={demoPeso} nutricion={demoNutricion} onToast={onToast} />}
+      {activeTab === 'reportes' && (
+        <ReportesTab
+          client={{ nombre: client.nombre, cumplimiento: client.cumplimiento, semanas: client.semanas, pesoInicial: client.pesoInicial }}
+          pesoData={demoPeso}
+          nutricion={demoNutricion}
+          onToast={onToast}
+        />
+      )}
     </div>
   )
 }
