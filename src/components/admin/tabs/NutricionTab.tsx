@@ -66,7 +66,7 @@ export default function NutricionTab({ nutricion }: NutricionTabProps) {
             <Tooltip
               contentStyle={{ background: '#1E2130', border: '1px solid #2a2d3e', borderRadius: 8 }}
               labelStyle={{ color: '#9CA3AF' }}
-              formatter={(v: number) => [`${v}%`, 'Cumplimiento']}
+              formatter={(v) =>[`${v}%`, 'Cumplimiento']}
             />
             <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
               {nutricion.cumplimientoSemanal.map((entry) => (

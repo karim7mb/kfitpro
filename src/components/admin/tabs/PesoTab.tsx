@@ -54,7 +54,7 @@ export default function PesoTab({ pesoData, onToast }: PesoTabProps) {
               contentStyle={{ background: '#1E2130', border: '1px solid #2a2d3e', borderRadius: 8 }}
               labelStyle={{ color: '#9CA3AF' }}
               itemStyle={{ color: '#F5611A' }}
-              formatter={(v: number) => [`${v} kg`, 'Peso']}
+              formatter={(v) =>[`${v} kg`, 'Peso']}
             />
             <Line type="monotone" dataKey="peso" stroke="#F5611A" strokeWidth={2.5} dot={{ fill: '#F5611A', r: 4 }} />
           </LineChart>
