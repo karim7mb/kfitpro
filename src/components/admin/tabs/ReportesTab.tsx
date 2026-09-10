@@ -51,7 +51,7 @@ export default function ReportesTab({ client, pesoData, nutricion, onToast }: Re
               <YAxis stroke="#4B5563" tick={{ fontSize: 11, fill: '#6B7280' }} domain={['auto', 'auto']} />
               <Tooltip
                 contentStyle={{ background: '#1E2130', border: '1px solid #2a2d3e', borderRadius: 8 }}
-                formatter={(v: number) => [`${v} kg`, 'Peso']}
+                formatter={(v) => [`${v} kg`, 'Peso']}
               />
               <Line type="monotone" dataKey="peso" stroke="#F5611A" strokeWidth={2.5} dot={{ fill: '#F5611A', r: 3 }} />
             </LineChart>
@@ -67,7 +67,7 @@ export default function ReportesTab({ client, pesoData, nutricion, onToast }: Re
               <YAxis stroke="#4B5563" tick={{ fontSize: 11, fill: '#6B7280' }} domain={[0, 100]} unit="%" />
               <Tooltip
                 contentStyle={{ background: '#1E2130', border: '1px solid #2a2d3e', borderRadius: 8 }}
-                formatter={(v: number) => [`${v}%`, 'Cumplimiento']}
+                formatter={(v) => [`${v}%`, 'Cumplimiento']}
               />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
                 {nutricion.cumplimientoSemanal.map(entry => (
