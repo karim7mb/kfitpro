@@ -285,8 +285,7 @@ export async function fetchPlanNutricional(clienteId: string): Promise<PlanNutri
     .eq('cliente_id', clienteId)
     .limit(1)
     .maybeSingle()
-  if (error) { console.error('fetchPlanNutricional error:', error); return null }
-  if (!data) { console.warn('fetchPlanNutricional: no data for', clienteId); return null }
+  if (error || !data) return null
   return data as PlanNutricional
 }
 
