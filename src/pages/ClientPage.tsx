@@ -83,7 +83,7 @@ export default function ClientPage({ user, onLogout, onToast }: ClientPageProps)
       <div className="pt-14">
         {tab === 'rutina' && <MiRutina userName={user.nombre} userId={user.id} onToast={onToast} />}
         {tab === 'peso' && <MiPeso userId={user.id} onToast={onToast} />}
-        {tab === 'nutricion' && <MiNutricion onToast={onToast} />}
+        {tab === 'nutricion' && <MiNutricion userId={user.id} onToast={onToast} />}
         {tab === 'chat' && <MiChat userName={user.nombre} userId={user.id} onToast={onToast} />}
       </div>
 

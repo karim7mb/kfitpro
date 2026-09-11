@@ -151,7 +151,7 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
           onToast={onToast}
         />
       )}
-      {activeTab === 'nutricion' && <NutricionTab nutricion={demoNutricion} />}
+      {activeTab === 'nutricion' && <NutricionTab clientId={clientId} onToast={onToast} />}
       {activeTab === 'chat' && (
         <ChatTab
           clientId={clientId}

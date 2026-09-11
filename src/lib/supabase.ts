@@ -249,6 +249,63 @@ export async function sendMensaje(
   if (error) throw error
 }
 
+export interface Alimento {
+  id: string
+  nombre: string
+  gramos: number
+  calorias: number
+  proteinas: number
+  carbos: number
+  grasas: number
+}
+
+export interface ComidaPlan {
+  id: string
+  nombre: string
+  hora: string
+  alimentos: Alimento[]
+}
+
+export interface PlanNutricional {
+  id?: string
+  cliente_id: string
+  entrenador_id: string
+  nombre: string
+  calorias_objetivo: number
+  proteinas_g: number
+  carbos_g: number
+  grasas_g: number
+  comidas: ComidaPlan[]
+}
+
+export async function fetchPlanNutricional(clienteId: string): Promise<PlanNutricional | null> {
+  const { data, error } = await supabase
+    .from('planes_nutricionales')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .eq('activo', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return data as PlanNutricional
+}
+
+export async function upsertPlanNutricional(plan: PlanNutricional): Promise<void> {
+  if (plan.id) {
+    const { error } = await supabase
+      .from('planes_nutricionales')
+      .update({ nombre: plan.nombre, calorias_objetivo: plan.calorias_objetivo, proteinas_g: plan.proteinas_g, carbos_g: plan.carbos_g, grasas_g: plan.grasas_g, comidas: plan.comidas })
+      .eq('id', plan.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('planes_nutricionales')
+      .insert({ cliente_id: plan.cliente_id, entrenador_id: plan.entrenador_id, nombre: plan.nombre, calorias_objetivo: plan.calorias_objetivo, proteinas_g: plan.proteinas_g, carbos_g: plan.carbos_g, grasas_g: plan.grasas_g, comidas: plan.comidas, activo: true })
+    if (error) throw error
+  }
+}
+
 export async function changePassword(newPassword: string): Promise<void> {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw error
