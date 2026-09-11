@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, Bot } from 'lucide-react'
+import { Send, Loader2 } from 'lucide-react'
 import { supabase, fetchMensajes, sendMensaje, type MensajeDB } from '../../../lib/supabase'
 
 interface ChatTabProps {
@@ -73,15 +73,9 @@ export default function ChatTab({ clientId, clienteNombre, clienteColor, cliente
         <div>
           <div className="font-medium text-white text-sm">{clienteNombre}</div>
           <div className="text-xs" style={{ color: '#6B7280' }}>
-            {isDemo ? 'Demo' : 'Chat real · IA activa'}
+            {isDemo ? 'Demo' : 'Chat con cliente'}
           </div>
         </div>
-        {!isDemo && (
-          <div className="ml-auto flex items-center gap-1 text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(245,97,26,0.15)', color: '#F5611A' }}>
-            <Bot style={{ width: 11, height: 11 }} />
-            IA
-          </div>
-        )}
       </div>
 
       {/* Messages */}
@@ -104,12 +98,6 @@ export default function ChatTab({ clientId, clienteNombre, clienteColor, cliente
                     borderBottomLeftRadius: !isMe ? 4 : undefined,
                   }}
                 >
-                  {msg.es_ia && isMe && (
-                    <div className="flex items-center gap-1 mb-1">
-                      <Bot style={{ width: 10, height: 10 }} />
-                      <span style={{ fontSize: 10, opacity: 0.8 }}>IA</span>
-                    </div>
-                  )}
                   <p style={{ whiteSpace: 'pre-wrap' }}>{msg.texto}</p>
                   <div className="text-xs mt-1 text-right" style={{ color: isMe ? 'rgba(255,255,255,0.7)' : '#6B7280' }}>
                     {hora(msg.created_at)}

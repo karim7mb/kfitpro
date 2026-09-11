@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, Bot } from 'lucide-react'
+import { Send, Loader2 } from 'lucide-react'
 import { supabase, fetchEntrenadorId, fetchMensajes, sendMensaje, type MensajeDB } from '../../lib/supabase'
 
 interface MiChatProps {
@@ -116,11 +116,8 @@ export default function MiChat({ userName, userId, onToast }: MiChatProps) {
           KF
         </div>
         <div>
-          <div className="font-semibold text-white">KarimFitPro</div>
-          <div className="text-xs flex items-center gap-1" style={{ color: '#10B981' }}>
-            <Bot style={{ width: 12, height: 12 }} />
-            Responde con IA
-          </div>
+          <div className="font-semibold text-white">Karim</div>
+          <div className="text-xs" style={{ color: '#10B981' }}>En línea</div>
         </div>
       </div>
 
@@ -135,9 +132,9 @@ export default function MiChat({ userName, userId, onToast }: MiChatProps) {
             const isMe = msg.remitente_id === userId
             return (
               <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                {!isMe && msg.es_ia && (
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1" style={{ background: '#F5611A' }}>
-                    <Bot style={{ width: 12, height: 12, color: 'white' }} />
+                {!isMe && (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1 text-xs font-bold text-white" style={{ background: '#F5611A' }}>
+                    K
                   </div>
                 )}
                 <div
@@ -160,8 +157,8 @@ export default function MiChat({ userName, userId, onToast }: MiChatProps) {
         )}
         {loadingAI && (
           <div className="flex justify-start">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1" style={{ background: '#F5611A' }}>
-              <Bot style={{ width: 12, height: 12, color: 'white' }} />
+            <div className="w-7 h-7 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1 text-xs font-bold text-white" style={{ background: '#F5611A' }}>
+              K
             </div>
             <div className="px-4 py-3 rounded-2xl" style={{ background: '#1E2130', borderBottomLeftRadius: 4 }}>
               <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: '#F5611A' }} />
