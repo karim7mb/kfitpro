@@ -30,7 +30,7 @@ export default function PesoTab({ pesoData, onToast, clientId }: PesoTabProps) {
 
   const current = hasPeso ? data[data.length - 1].peso : 0
   const initial = hasPeso ? data[0].peso : 0
-  const change = current - initial
+  const change = Math.round((current - initial) * 10) / 10
   const weeks = Math.max(1, data.length * 4)
   const rhythm = (change / weeks).toFixed(2)
 
