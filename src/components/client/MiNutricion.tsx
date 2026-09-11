@@ -4,7 +4,7 @@ import { fetchPlanNutricional, type PlanNutricional, type ComidaPlan } from '../
 
 interface MiNutricionProps {
   userId: string
-  onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
+  onToast?: (msg: string, type?: 'success' | 'error' | 'info') => void
 }
 
 const isDemo = (id: string) => id.startsWith('client-') || id.startsWith('admin-')
@@ -60,7 +60,7 @@ const DEMO_PLAN: PlanNutricional = {
   ],
 }
 
-export default function MiNutricion({ userId, onToast }: MiNutricionProps) {
+export default function MiNutricion({ userId }: MiNutricionProps) {
   const demo = isDemo(userId)
   const [plan, setPlan] = useState<PlanNutricional | null>(null)
   const [loading, setLoading] = useState(!demo)
