@@ -6,9 +6,10 @@ import BottomNav from '../components/client/BottomNav'
 import MiInicio from '../components/client/MiInicio'
 import MiRutina from '../components/client/MiRutina'
 import MiNutricion from '../components/client/MiNutricion'
+import MiProgreso from '../components/client/MiProgreso'
 import MiChat from '../components/client/MiChat'
 
-type ClientTab = 'inicio' | 'rutina' | 'nutricion' | 'chat'
+type ClientTab = 'inicio' | 'rutina' | 'nutricion' | 'progreso' | 'chat'
 
 interface ClientPageProps {
   user: AppUser
@@ -84,6 +85,7 @@ export default function ClientPage({ user, onLogout, onToast }: ClientPageProps)
         {tab === 'inicio' && <MiInicio userName={user.nombre} userId={user.id} onNavigate={setTab} />}
         {tab === 'rutina' && <MiRutina userName={user.nombre} userId={user.id} onToast={onToast} />}
         {tab === 'nutricion' && <MiNutricion userId={user.id} onToast={onToast} />}
+        {tab === 'progreso' && <MiProgreso userId={user.id} onToast={onToast} />}
         {tab === 'chat' && <MiChat userName={user.nombre} userId={user.id} onToast={onToast} />}
       </div>
 

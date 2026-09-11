@@ -1,6 +1,6 @@
-import { Home, Dumbbell, Apple, MessageSquare } from 'lucide-react'
+import { Home, Dumbbell, Apple, TrendingUp, MessageSquare } from 'lucide-react'
 
-type ClientTab = 'inicio' | 'rutina' | 'nutricion' | 'chat'
+type ClientTab = 'inicio' | 'rutina' | 'nutricion' | 'progreso' | 'chat'
 
 interface BottomNavProps {
   current: ClientTab
@@ -11,6 +11,7 @@ const tabs = [
   { id: 'inicio' as ClientTab, label: 'Inicio', icon: Home },
   { id: 'rutina' as ClientTab, label: 'Rutina', icon: Dumbbell },
   { id: 'nutricion' as ClientTab, label: 'Nutrición', icon: Apple },
+  { id: 'progreso' as ClientTab, label: 'Progreso', icon: TrendingUp },
   { id: 'chat' as ClientTab, label: 'Chat', icon: MessageSquare },
 ]
 
@@ -26,14 +27,14 @@ export default function BottomNav({ current, onChange }: BottomNavProps) {
           <button
             key={id}
             onClick={() => onChange(id)}
-            className="flex-1 flex flex-col items-center py-3 gap-1 cursor-pointer transition-all relative"
+            className="flex-1 flex flex-col items-center py-2.5 gap-0.5 cursor-pointer transition-all relative"
             style={{ color: active ? '#F5611A' : '#4B5563' }}
           >
             {active && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-10 rounded-full" style={{ background: '#F5611A' }} />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full" style={{ background: '#F5611A' }} />
             )}
-            <Icon style={{ width: 20, height: 20 }} />
-            <span className="text-xs font-medium">{label}</span>
+            <Icon style={{ width: 19, height: 19 }} />
+            <span className="text-[10px] font-medium">{label}</span>
           </button>
         )
       })}
