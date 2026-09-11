@@ -283,10 +283,10 @@ export async function fetchPlanNutricional(clienteId: string): Promise<PlanNutri
     .from('planes_nutricionales')
     .select('*')
     .eq('cliente_id', clienteId)
-    .eq('activo', true)
     .limit(1)
     .maybeSingle()
-  if (error || !data) return null
+  if (error) { console.error('fetchPlanNutricional error:', error); return null }
+  if (!data) { console.warn('fetchPlanNutricional: no data for', clienteId); return null }
   return data as PlanNutricional
 }
 
