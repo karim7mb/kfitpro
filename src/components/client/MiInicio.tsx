@@ -6,7 +6,7 @@ import { demoRutina, demoPeso, demoNutricion } from '../../data/demo'
 interface MiInicioProps {
   userName: string
   userId: string
-  onNavigate: (tab: 'rutina' | 'peso' | 'nutricion' | 'chat') => void
+  onNavigate: (tab: 'rutina' | 'nutricion' | 'chat') => void
 }
 
 const isDemo = (id: string) => id.startsWith('client-') || id.startsWith('admin-')
@@ -126,9 +126,8 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
       {/* Grid: Peso + Chat */}
       <div className="mx-4 grid grid-cols-2 gap-3 mb-4">
         {/* Peso */}
-        <button
-          onClick={() => onNavigate('peso')}
-          className="rounded-2xl p-4 text-left cursor-pointer"
+        <div
+          className="rounded-2xl p-4 text-left"
           style={{ background: '#161820', border: '1px solid #1E2130' }}
         >
           <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(59,130,246,0.15)' }}>
@@ -143,7 +142,7 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
               {pesoDiff > 0 ? '+' : ''}{pesoDiff.toFixed(1)} kg
             </div>
           )}
-        </button>
+        </div>
 
         {/* Chat */}
         <button
