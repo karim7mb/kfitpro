@@ -30,31 +30,13 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   useEffect(() => {
     if (demo) {
       setRutina(demoRutina)
-      initPesos(demoRutina)
       return
     }
     fetchRutina(userId).then(r => {
-      const data = r ?? demoRutina
-      setRutina(data)
-      initPesos(data)
+      setRutina(r ?? demoRutina)
       setLoading(false)
     })
   }, [userId, demo])
-
-  function initPesos(r: RutinaData) {
-    const dia = r.dias[0]
-    if (!dia) return
-    const p: Record<string, string> = {}
-    const rv: Record<string, string> = {}
-    dia.ejercicios.forEach(ej => {
-      for (let i = 0; i < ej.series; i++) {
-        p[serieKey(ej.id, i)] = '0'
-        rv[serieKey(ej.id, i)] = '0'
-      }
-    })
-    setPesos(p)
-    setReps(rv)
-  }
 
   const today = new Date()
   const dayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
@@ -217,8 +199,8 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                               </span>
                               <input
                                 type="number"
-                                placeholder="kg"
-                                value={pesos[k] || ''}
+                                placeholder="0"
+                                value={pesos[k] ?? ''}
                                 onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
                                 disabled={done}
                                 className="w-24 px-2 py-1.5 rounded-lg text-xs text-white outline-none text-center"
@@ -226,8 +208,8 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                               />
                               <input
                                 type="number"
-                                placeholder="reps"
-                                value={reps[k] || ''}
+                                placeholder="0"
+                                value={reps[k] ?? ''}
                                 onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
                                 disabled={done}
                                 className="w-16 px-2 py-1.5 rounded-lg text-xs text-white outline-none text-center"
