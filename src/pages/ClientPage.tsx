@@ -3,12 +3,12 @@ import { Settings, X, Loader2 } from 'lucide-react'
 import type { AppUser } from '../lib/supabase'
 import { changePassword } from '../lib/supabase'
 import BottomNav from '../components/client/BottomNav'
+import MiInicio from '../components/client/MiInicio'
 import MiRutina from '../components/client/MiRutina'
-import MiPeso from '../components/client/MiPeso'
 import MiNutricion from '../components/client/MiNutricion'
 import MiChat from '../components/client/MiChat'
 
-type ClientTab = 'rutina' | 'peso' | 'nutricion' | 'chat'
+type ClientTab = 'inicio' | 'rutina' | 'nutricion' | 'chat'
 
 interface ClientPageProps {
   user: AppUser
@@ -17,7 +17,7 @@ interface ClientPageProps {
 }
 
 export default function ClientPage({ user, onLogout, onToast }: ClientPageProps) {
-  const [tab, setTab] = useState<ClientTab>('rutina')
+  const [tab, setTab] = useState<ClientTab>('inicio')
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [newPwd, setNewPwd] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
@@ -81,8 +81,8 @@ export default function ClientPage({ user, onLogout, onToast }: ClientPageProps)
 
       {/* Content */}
       <div className="pt-14">
+        {tab === 'inicio' && <MiInicio userName={user.nombre} userId={user.id} onNavigate={setTab} />}
         {tab === 'rutina' && <MiRutina userName={user.nombre} userId={user.id} onToast={onToast} />}
-        {tab === 'peso' && <MiPeso userId={user.id} onToast={onToast} />}
         {tab === 'nutricion' && <MiNutricion userId={user.id} onToast={onToast} />}
         {tab === 'chat' && <MiChat userName={user.nombre} userId={user.id} onToast={onToast} />}
       </div>
