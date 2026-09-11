@@ -196,7 +196,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                               </span>
                               <input
                                 type="number"
-                                placeholder={ej.peso > 0 ? String(ej.peso) : '—'}
+                                placeholder="kg"
                                 value={pesos[k] || ''}
                                 onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
                                 disabled={done}
@@ -205,7 +205,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                               />
                               <input
                                 type="number"
-                                placeholder={`${ej.repsMin}`}
+                                placeholder="reps"
                                 value={reps[k] || ''}
                                 onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
                                 disabled={done}
