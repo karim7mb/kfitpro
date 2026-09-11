@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList, CartesianGrid } from 'recharts'
 import { Plus, Loader2 } from 'lucide-react'
 import { fetchRegistrosPeso, addRegistroPeso, fetchClienteData, type PesoEntry } from '../../lib/supabase'
 import { demoPeso } from '../../data/demo'
@@ -158,23 +158,33 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
           {pesos.length > 1 && (
             <div className="mx-4 mb-4 rounded-2xl p-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
               <h3 className="font-semibold text-white mb-4">Evolución del peso</h3>
-              <ResponsiveContainer width="100%" height={160}>
-                <AreaChart data={pesos} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-                  <defs>
-                    <linearGradient id="pgradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F5611A" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#F5611A" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={pesos} margin={{ top: 22, right: 16, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2130" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fill: '#4B5563', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#4B5563', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                  <YAxis
+                    tick={{ fill: '#4B5563', fontSize: 11 }} axisLine={false} tickLine={false}
+                    domain={([min, max]: [number, number]) => [Math.floor(min - 0.5), Math.ceil(max + 0.5)]}
+                  />
                   <Tooltip
                     contentStyle={{ background: '#1E2130', border: '1px solid #2a2d3e', borderRadius: 8, fontSize: 12 }}
                     labelStyle={{ color: '#9CA3AF' }}
                     itemStyle={{ color: '#F5611A' }}
+                    formatter={(v: number) => [`${v} kg`, 'Peso']}
                   />
-                  <Area type="monotone" dataKey="peso" stroke="#F5611A" strokeWidth={2} fill="url(#pgradient)" dot={{ fill: '#F5611A', r: 3 }} />
-                </AreaChart>
+                  <Line
+                    type="monotone" dataKey="peso" stroke="#F5611A" strokeWidth={2.5}
+                    dot={{ fill: '#F5611A', r: 4, strokeWidth: 2, stroke: '#0D0E13' }}
+                    activeDot={{ r: 6, fill: '#F5611A' }}
+                  >
+                    <LabelList
+                      dataKey="peso"
+                      position="top"
+                      style={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 600 }}
+                      formatter={(v: number) => `${v}`}
+                    />
+                  </Line>
+                </LineChart>
               </ResponsiveContainer>
             </div>
           )}
