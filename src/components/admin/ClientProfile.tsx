@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Dumbbell, Weight, Apple, MessageSquare, FileText, Loader2 } from 'lucide-react'
 import { demoClients, demoRutina, demoPeso, demoNutricion } from '../../data/demo'
-import { fetchClienteData, isDemoMode, type ClienteDisplay } from '../../lib/supabase'
+import { fetchClienteData, updatePesoObjetivo, isDemoMode, type ClienteDisplay } from '../../lib/supabase'
 import RutinaTab from './tabs/RutinaTab'
 import PesoTab from './tabs/PesoTab'
 import NutricionTab from './tabs/NutricionTab'
@@ -31,6 +31,8 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
   const [activeTab, setActiveTab] = useState<Tab>('datos')
   const [realClient, setRealClient] = useState<ClienteDisplay | null>(null)
   const [loadingClient, setLoadingClient] = useState(false)
+  const [pesoObj, setPesoObj] = useState('')
+  const [savingObj, setSavingObj] = useState(false)
 
   const isReal = isRealId(clientId) && !isDemoMode()
 
@@ -39,6 +41,7 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
     setLoadingClient(true)
     fetchClienteData(clientId).then(data => {
       setRealClient(data)
+      if (data?.pesoObjetivo) setPesoObj(String(data.pesoObjetivo))
       setLoadingClient(false)
     })
   }, [clientId, isReal])
@@ -118,23 +121,60 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
 
       {/* Tab Content */}
       {activeTab === 'datos' && (
-        <div className="rounded-xl p-6" style={{ background: '#161820', border: '1px solid #1E2130' }}>
-          <h3 className="font-semibold text-white mb-4">Información Personal</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: 'Nombre', value: client.nombre },
-              { label: 'Edad', value: `${client.edad} años` },
-              { label: 'Objetivo', value: client.objetivo || '—' },
-              { label: 'Estado', value: client.activo ? 'Activo' : 'Inactivo' },
-              { label: 'Peso Inicial', value: client.pesoInicial ? `${client.pesoInicial} kg` : '—' },
-              { label: 'Semanas Activo', value: `${client.semanas} semanas` },
-            ].map(({ label, value }) => (
-              <div key={label} className="p-3 rounded-lg" style={{ background: '#1E2130' }}>
-                <div className="text-xs mb-1" style={{ color: '#6B7280' }}>{label}</div>
-                <div className="font-medium text-white text-sm">{value}</div>
-              </div>
-            ))}
+        <div className="space-y-4">
+          <div className="rounded-xl p-6" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+            <h3 className="font-semibold text-white mb-4">Información Personal</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Nombre', value: client.nombre },
+                { label: 'Edad', value: `${client.edad} años` },
+                { label: 'Objetivo', value: client.objetivo || '—' },
+                { label: 'Estado', value: client.activo ? 'Activo' : 'Inactivo' },
+                { label: 'Peso Inicial', value: client.pesoInicial ? `${client.pesoInicial} kg` : '—' },
+                { label: 'Semanas Activo', value: `${client.semanas} semanas` },
+              ].map(({ label, value }) => (
+                <div key={label} className="p-3 rounded-lg" style={{ background: '#1E2130' }}>
+                  <div className="text-xs mb-1" style={{ color: '#6B7280' }}>{label}</div>
+                  <div className="font-medium text-white text-sm">{value}</div>
+                </div>
+              ))}
+            </div>
           </div>
+          {isReal && (
+            <div className="rounded-xl p-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+              <h3 className="font-semibold text-white mb-3">Peso objetivo</h3>
+              <p className="text-xs mb-3" style={{ color: '#6B7280' }}>El cliente verá su progreso hacia este objetivo en la app</p>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Ej: 75"
+                  value={pesoObj}
+                  onChange={e => setPesoObj(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm text-white outline-none"
+                  style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
+                />
+                <span className="flex items-center text-sm" style={{ color: '#6B7280' }}>kg</span>
+                <button
+                  onClick={async () => {
+                    const val = parseFloat(pesoObj)
+                    if (!val) return
+                    setSavingObj(true)
+                    try {
+                      await updatePesoObjetivo(clientId, val)
+                      onToast('Peso objetivo guardado', 'success')
+                    } catch {
+                      onToast('Error al guardar', 'error')
+                    } finally { setSavingObj(false) }
+                  }}
+                  disabled={savingObj || !pesoObj}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer"
+                  style={{ background: '#F5611A', opacity: savingObj || !pesoObj ? 0.6 : 1 }}
+                >
+                  {savingObj ? '...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {activeTab === 'rutina' && (

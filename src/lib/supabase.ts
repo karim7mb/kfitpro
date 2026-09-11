@@ -57,6 +57,7 @@ export interface ClienteDisplay {
   objetivo: string
   edad: number
   pesoInicial: number
+  pesoObjetivo?: number
   activo: boolean
   iniciales: string
   color: string
@@ -113,7 +114,7 @@ export async function fetchMisClientes(): Promise<ClienteDisplay[]> {
 export async function fetchClienteData(clienteId: string): Promise<ClienteDisplay | null> {
   const { data: c, error } = await supabase
     .from('clientes')
-    .select('usuario_id, objetivo, edad, peso_inicial, activo, created_at')
+    .select('usuario_id, objetivo, edad, peso_inicial, peso_objetivo, activo, created_at')
     .eq('usuario_id', clienteId)
     .single()
 
@@ -132,12 +133,21 @@ export async function fetchClienteData(clienteId: string): Promise<ClienteDispla
     objetivo: c.objetivo ?? '',
     edad: c.edad ?? 0,
     pesoInicial: c.peso_inicial ?? 0,
+    pesoObjetivo: c.peso_objetivo ?? undefined,
     activo: c.activo ?? true,
     iniciales: initiales(u?.nombre ?? 'XX'),
     color: '#F5611A',
     semanas: weeksSince(c.created_at),
     cumplimiento: 0,
   }
+}
+
+export async function updatePesoObjetivo(clienteId: string, pesoObjetivo: number): Promise<void> {
+  const { error } = await supabase
+    .from('clientes')
+    .update({ peso_objetivo: pesoObjetivo })
+    .eq('usuario_id', clienteId)
+  if (error) throw error
 }
 
 export async function fetchRegistrosPeso(clienteId: string): Promise<PesoEntry[]> {

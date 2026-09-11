@@ -50,6 +50,7 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
   const [tab, setTab] = useState<ProgresoTab>('metricas')
   const [pesos, setPesos] = useState<PesoEntry[]>(demo ? demoPeso : [])
   const [pesoInicial, setPesoInicial] = useState<number>(0)
+  const [pesoObjetivo, setPesoObjetivo] = useState<number | undefined>(undefined)
   const [loading, setLoading] = useState(!demo)
   const [newWeight, setNewWeight] = useState('')
   const [saving, setSaving] = useState(false)
@@ -63,13 +64,15 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
     ]).then(([entries, cliente]) => {
       setPesos(entries)
       setPesoInicial(cliente?.pesoInicial ?? 0)
+      setPesoObjetivo(cliente?.pesoObjetivo)
       setLoading(false)
     })
   }, [userId, demo])
 
   const actual = pesos.length > 0 ? pesos[pesos.length - 1].peso : pesoInicial
   const perdido = pesoInicial > 0 ? pesoInicial - actual : 0
-  const pct = pesoInicial > 0 ? Math.max(0, Math.min(100, (perdido / pesoInicial) * 100 * 5)) : 0
+  const totalPorPerder = pesoObjetivo && pesoInicial > 0 ? pesoInicial - pesoObjetivo : 0
+  const pct = totalPorPerder > 0 ? Math.max(0, Math.min(100, (perdido / totalPorPerder) * 100)) : 0
 
   const handleAdd = async () => {
     const val = parseFloat(newWeight.replace(',', '.'))
@@ -139,6 +142,7 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
                 {[
                   { label: 'Inicial', val: pesoInicial > 0 ? `${pesoInicial} kg` : '—', color: '#6B7280' },
                   { label: 'Actual', val: actual > 0 ? `${actual} kg` : '—', color: 'white' },
+                  { label: 'Objetivo', val: pesoObjetivo ? `${pesoObjetivo} kg` : 'Sin definir', color: '#F5611A' },
                   { label: 'Diferencia', val: perdido !== 0 ? `${perdido > 0 ? '-' : '+'}${Math.abs(perdido).toFixed(1)} kg` : '—', color: perdido > 0 ? '#10B981' : perdido < 0 ? '#EF4444' : '#6B7280' },
                 ].map(({ label, val, color }) => (
                   <div key={label} className="flex justify-between text-sm">
