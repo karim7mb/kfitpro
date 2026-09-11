@@ -143,7 +143,7 @@ export async function fetchClienteData(clienteId: string): Promise<ClienteDispla
 export async function fetchRegistrosPeso(clienteId: string): Promise<PesoEntry[]> {
   const { data, error } = await supabase
     .from('registros_peso')
-    .select('peso, fecha')
+    .select('peso_kg, fecha')
     .eq('cliente_id', clienteId)
     .order('fecha', { ascending: true })
     .limit(12)
@@ -152,7 +152,7 @@ export async function fetchRegistrosPeso(clienteId: string): Promise<PesoEntry[]
 
   return data.map(r => ({
     mes: new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES', { month: 'short' }),
-    peso: Number(r.peso),
+    peso: Number(r.peso_kg),
     fecha: r.fecha,
   }))
 }
@@ -164,7 +164,7 @@ export async function addRegistroPeso(
 ): Promise<void> {
   const { error } = await supabase
     .from('registros_peso')
-    .insert({ cliente_id: clienteId, peso, fecha })
+    .insert({ cliente_id: clienteId, peso_kg: peso, fecha })
   if (error) throw error
 }
 
