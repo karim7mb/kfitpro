@@ -16,7 +16,7 @@ function serieKey(ejId: string, i: number) { return `${ejId}-${i}` }
 
 export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const demo = isDemo(userId)
-  const [rutina, setRutina] = useState<RutinaData | null>(demo ? demoRutina : null)
+  const [rutina, setRutina] = useState<RutinaData | null>(null)
   const [loading, setLoading] = useState(!demo)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [seriesDone, setSeriesDone] = useState<Record<string, boolean>>({})
@@ -28,12 +28,33 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const [sessionDone, setSessionDone] = useState(false)
 
   useEffect(() => {
-    if (demo) return
+    if (demo) {
+      setRutina(demoRutina)
+      initPesos(demoRutina)
+      return
+    }
     fetchRutina(userId).then(r => {
-      setRutina(r ?? demoRutina)
+      const data = r ?? demoRutina
+      setRutina(data)
+      initPesos(data)
       setLoading(false)
     })
   }, [userId, demo])
+
+  function initPesos(r: RutinaData) {
+    const dia = r.dias[0]
+    if (!dia) return
+    const p: Record<string, string> = {}
+    const rv: Record<string, string> = {}
+    dia.ejercicios.forEach(ej => {
+      for (let i = 0; i < ej.series; i++) {
+        p[serieKey(ej.id, i)] = '0'
+        rv[serieKey(ej.id, i)] = '0'
+      }
+    })
+    setPesos(p)
+    setReps(rv)
+  }
 
   const today = new Date()
   const dayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
