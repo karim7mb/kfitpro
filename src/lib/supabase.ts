@@ -207,6 +207,48 @@ export async function upsertRutina(
   if (error) throw error
 }
 
+export interface MensajeDB {
+  id: string
+  remitente_id: string
+  destinatario_id: string
+  texto: string
+  es_ia: boolean
+  leido: boolean
+  created_at: string
+}
+
+export async function fetchEntrenadorId(clienteId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('clientes')
+    .select('entrenador_id')
+    .eq('usuario_id', clienteId)
+    .single()
+  return data?.entrenador_id ?? null
+}
+
+export async function fetchMensajes(userId: string, otroId: string): Promise<MensajeDB[]> {
+  const { data, error } = await supabase
+    .from('mensajes')
+    .select('*')
+    .or(`and(remitente_id.eq.${userId},destinatario_id.eq.${otroId}),and(remitente_id.eq.${otroId},destinatario_id.eq.${userId})`)
+    .order('created_at', { ascending: true })
+    .limit(60)
+  if (error || !data) return []
+  return data as MensajeDB[]
+}
+
+export async function sendMensaje(
+  remitenteId: string,
+  destinatarioId: string,
+  texto: string,
+  esIa = false
+): Promise<void> {
+  const { error } = await supabase
+    .from('mensajes')
+    .insert({ remitente_id: remitenteId, destinatario_id: destinatarioId, texto, es_ia: esIa })
+  if (error) throw error
+}
+
 export async function changePassword(newPassword: string): Promise<void> {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw error

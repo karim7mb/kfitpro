@@ -84,7 +84,7 @@ export default function ClientPage({ user, onLogout, onToast }: ClientPageProps)
         {tab === 'rutina' && <MiRutina userName={user.nombre} userId={user.id} onToast={onToast} />}
         {tab === 'peso' && <MiPeso userId={user.id} onToast={onToast} />}
         {tab === 'nutricion' && <MiNutricion onToast={onToast} />}
-        {tab === 'chat' && <MiChat userName={user.nombre} onToast={onToast} />}
+        {tab === 'chat' && <MiChat userName={user.nombre} userId={user.id} onToast={onToast} />}
       </div>
 
       <BottomNav current={tab} onChange={setTab} />

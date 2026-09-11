@@ -1,83 +1,124 @@
-import { useState, useRef, useEffect } from 'react'
-import { Send } from 'lucide-react'
-
-interface Message {
-  id: string
-  remitente: string
-  texto: string
-  hora: string
-  leido: boolean
-}
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Send, Loader2, Bot } from 'lucide-react'
+import { supabase, fetchMensajes, sendMensaje, type MensajeDB } from '../../../lib/supabase'
 
 interface ChatTabProps {
-  messages: Message[]
-  currentUserId: string
+  clientId: string
+  clienteNombre: string
+  clienteColor: string
+  clienteIniciales: string
   onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
 }
 
-export default function ChatTab({ messages: initialMessages, currentUserId, onToast }: ChatTabProps) {
-  const [messages, setMessages] = useState(initialMessages)
+function hora(iso: string) {
+  const d = new Date(iso)
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+}
+
+export default function ChatTab({ clientId, clienteNombre, clienteColor, clienteIniciales, onToast }: ChatTabProps) {
+  const isDemo = clientId.startsWith('client-') || clientId.startsWith('admin-')
+  const [adminId, setAdminId] = useState<string | null>(null)
+  const [mensajes, setMensajes] = useState<MensajeDB[]>([])
   const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  const scrollDown = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
 
-  const send = () => {
-    if (!input.trim()) return
-    const now = new Date()
-    const hora = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-    setMessages(prev => [...prev, {
-      id: Math.random().toString(36).slice(2),
-      remitente: currentUserId,
-      texto: input.trim(),
-      hora,
-      leido: true,
-    }])
+  const loadMensajes = useCallback(async (aid: string) => {
+    const data = await fetchMensajes(aid, clientId)
+    setMensajes(data)
+  }, [clientId])
+
+  useEffect(() => {
+    if (isDemo) return
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setAdminId(user.id)
+      loadMensajes(user.id)
+    })
+  }, [clientId, isDemo, loadMensajes])
+
+  // Poll every 4 seconds
+  useEffect(() => {
+    if (isDemo || !adminId) return
+    const interval = setInterval(() => loadMensajes(adminId), 4000)
+    return () => clearInterval(interval)
+  }, [adminId, isDemo, loadMensajes])
+
+  useEffect(() => { scrollDown() }, [mensajes])
+
+  const send = async () => {
+    const texto = input.trim()
+    if (!texto || sending || !adminId) return
     setInput('')
-    onToast('Mensaje enviado', 'success')
+    setSending(true)
+    try {
+      await sendMensaje(adminId, clientId, texto)
+      await loadMensajes(adminId)
+    } catch {
+      onToast('Error al enviar el mensaje', 'error')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
     <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: '#161820', border: '1px solid #1E2130', height: 480 }}>
       {/* Header */}
       <div className="px-5 py-3 flex items-center gap-3" style={{ borderBottom: '1px solid #1E2130' }}>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: '#F5611A', color: 'white' }}>
-          CR
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: clienteColor }}>
+          {clienteIniciales}
         </div>
         <div>
-          <div className="font-medium text-white text-sm">Carlos Ruiz</div>
-          <div className="text-xs flex items-center gap-1" style={{ color: '#10B981' }}>
-            <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: '#10B981' }} />
-            En línea
+          <div className="font-medium text-white text-sm">{clienteNombre}</div>
+          <div className="text-xs" style={{ color: '#6B7280' }}>
+            {isDemo ? 'Demo' : 'Chat real · IA activa'}
           </div>
         </div>
+        {!isDemo && (
+          <div className="ml-auto flex items-center gap-1 text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(245,97,26,0.15)', color: '#F5611A' }}>
+            <Bot style={{ width: 11, height: 11 }} />
+            IA
+          </div>
+        )}
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-        {messages.map(msg => {
-          const isMe = msg.remitente === currentUserId
-          return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className="max-w-xs lg:max-w-sm px-4 py-2.5 rounded-2xl text-sm"
-                style={{
-                  background: isMe ? '#F5611A' : '#1E2130',
-                  color: 'white',
-                  borderBottomRightRadius: isMe ? 4 : undefined,
-                  borderBottomLeftRadius: !isMe ? 4 : undefined,
-                }}
-              >
-                <p>{msg.texto}</p>
-                <div className="text-xs mt-1 text-right" style={{ color: isMe ? 'rgba(255,255,255,0.7)' : '#6B7280' }}>
-                  {msg.hora}
+        {isDemo ? (
+          <div className="text-center py-8 text-sm" style={{ color: '#6B7280' }}>Chat en modo demo</div>
+        ) : mensajes.length === 0 ? (
+          <div className="text-center py-8 text-sm" style={{ color: '#6B7280' }}>No hay mensajes aún. El cliente iniciará la conversación.</div>
+        ) : (
+          mensajes.map(msg => {
+            const isMe = msg.remitente_id === adminId
+            return (
+              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className="max-w-xs lg:max-w-sm px-4 py-2.5 rounded-2xl text-sm"
+                  style={{
+                    background: isMe ? '#F5611A' : '#1E2130',
+                    color: 'white',
+                    borderBottomRightRadius: isMe ? 4 : undefined,
+                    borderBottomLeftRadius: !isMe ? 4 : undefined,
+                  }}
+                >
+                  {msg.es_ia && isMe && (
+                    <div className="flex items-center gap-1 mb-1">
+                      <Bot style={{ width: 10, height: 10 }} />
+                      <span style={{ fontSize: 10, opacity: 0.8 }}>IA</span>
+                    </div>
+                  )}
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{msg.texto}</p>
+                  <div className="text-xs mt-1 text-right" style={{ color: isMe ? 'rgba(255,255,255,0.7)' : '#6B7280' }}>
+                    {hora(msg.created_at)}
+                  </div>
                 </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -85,19 +126,24 @@ export default function ChatTab({ messages: initialMessages, currentUserId, onTo
       <div className="px-4 py-3 flex gap-2" style={{ borderTop: '1px solid #1E2130' }}>
         <input
           type="text"
-          placeholder="Escribe un mensaje..."
+          placeholder={isDemo ? 'Chat demo' : 'Responder al cliente...'}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
+          disabled={isDemo || sending}
           className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white outline-none"
-          style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
+          style={{ background: '#1E2130', border: '1px solid #2a2d3e', opacity: isDemo ? 0.5 : 1 }}
         />
         <button
           onClick={send}
+          disabled={isDemo || sending}
           className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer flex-shrink-0"
-          style={{ background: '#F5611A' }}
+          style={{ background: '#F5611A', opacity: (isDemo || sending) ? 0.5 : 1 }}
         >
-          <Send style={{ width: 16, height: 16, color: 'white' }} />
+          {sending
+            ? <Loader2 className="animate-spin" style={{ width: 16, height: 16, color: 'white' }} />
+            : <Send style={{ width: 16, height: 16, color: 'white' }} />
+          }
         </button>
       </div>
     </div>

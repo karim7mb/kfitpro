@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Dumbbell, Weight, Apple, MessageSquare, FileText, Loader2 } from 'lucide-react'
-import { demoClients, demoRutina, demoPeso, demoNutricion, demoChat } from '../../data/demo'
+import { demoClients, demoRutina, demoPeso, demoNutricion } from '../../data/demo'
 import { fetchClienteData, isDemoMode, type ClienteDisplay } from '../../lib/supabase'
 import RutinaTab from './tabs/RutinaTab'
 import PesoTab from './tabs/PesoTab'
@@ -152,7 +152,15 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
         />
       )}
       {activeTab === 'nutricion' && <NutricionTab nutricion={demoNutricion} />}
-      {activeTab === 'chat' && <ChatTab messages={demoChat} currentUserId="admin-001" onToast={onToast} />}
+      {activeTab === 'chat' && (
+        <ChatTab
+          clientId={clientId}
+          clienteNombre={client.nombre}
+          clienteColor={client.color}
+          clienteIniciales={client.iniciales}
+          onToast={onToast}
+        />
+      )}
       {activeTab === 'reportes' && (
         <ReportesTab
           client={{ nombre: client.nombre, cumplimiento: client.cumplimiento, semanas: client.semanas, pesoInicial: client.pesoInicial }}
