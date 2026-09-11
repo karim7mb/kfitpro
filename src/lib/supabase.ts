@@ -284,7 +284,6 @@ export async function fetchPlanNutricional(clienteId: string): Promise<PlanNutri
     .select('*')
     .eq('cliente_id', clienteId)
     .eq('activo', true)
-    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (error || !data) return null
