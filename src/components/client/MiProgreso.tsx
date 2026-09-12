@@ -129,6 +129,15 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
   const ultimaMedida = medidas[medidas.length - 1]
   const primeraMedida = medidas[0]
 
+  const medidasEstaSemana = medidas.filter(m => m.fecha && m.fecha >= semanaPasadaStr)
+  const cinturaCambioSemana = medidasEstaSemana.length >= 2
+    ? medidasEstaSemana[medidasEstaSemana.length - 1].cintura != null && medidasEstaSemana[0].cintura != null
+      ? medidasEstaSemana[medidasEstaSemana.length - 1].cintura! - medidasEstaSemana[0].cintura!
+      : null
+    : ultimaMedida?.cintura != null && primeraMedida?.cintura != null && medidas.length > 1
+      ? ultimaMedida.cintura - primeraMedida.cintura
+      : null
+
   const ejerciciosMap = new Map<string, RegistroRendimiento[]>()
   rendimiento.forEach(r => {
     if (!ejerciciosMap.has(r.ejercicio)) ejerciciosMap.set(r.ejercicio, [])
@@ -142,7 +151,10 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
     try {
       if (!demo) await addRegistroPeso(userId, val, hoy)
       const mes = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-      setPesos(prev => [...prev, { mes, peso: val, fecha: hoy }])
+      setPesos(prev => {
+        const next = [...prev.filter(p => p.fecha !== hoy), { mes, peso: val, fecha: hoy }]
+        return next.sort((a, b) => (a.fecha ?? '').localeCompare(b.fecha ?? ''))
+      })
       setNewPeso(''); setShowPesoForm(false)
       onToast('Peso registrado', 'success')
     } catch { onToast('Error al guardar', 'error') }
@@ -265,17 +277,13 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
                 },
                 {
                   label: 'Cintura',
-                  content: (() => {
-                    const diff = ultimaMedida?.cintura && primeraMedida?.cintura
-                      ? ultimaMedida.cintura - primeraMedida.cintura : null
-                    return diff !== null
-                      ? <span className="font-bold text-base" style={{ color: diff <= 0 ? '#10B981' : '#EF4444' }}>
-                          {diff > 0 ? '+' : ''}{diff.toFixed(1)} cm
-                        </span>
-                      : ultimaMedida?.cintura
-                      ? <span className="font-bold text-base text-white">{ultimaMedida.cintura} cm</span>
-                      : <span className="font-bold text-base text-white">—</span>
-                  })(),
+                  content: cinturaCambioSemana !== null
+                    ? <span className="font-bold text-base" style={{ color: cinturaCambioSemana <= 0 ? '#10B981' : '#EF4444' }}>
+                        {cinturaCambioSemana > 0 ? '+' : ''}{cinturaCambioSemana.toFixed(1)} cm
+                      </span>
+                    : ultimaMedida?.cintura
+                    ? <span className="font-bold text-base text-white">{ultimaMedida.cintura} cm</span>
+                    : <span className="font-bold text-base text-white">—</span>,
                 },
                 {
                   label: 'Peso actual',
@@ -359,8 +367,8 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
                   { label: 'Actual', val: actual > 0 ? `${actual} kg` : '—', color: 'white' },
                   { label: 'Objetivo', val: pesoObjetivo ? `${pesoObjetivo} kg` : 'Sin definir', color: '#F5611A' },
                   {
-                    label: 'Diferencia',
-                    val: perdido !== 0 ? `${perdido > 0 ? '-' : '+'}${Math.abs(perdido).toFixed(1)} kg` : '—',
+                    label: 'Bajado',
+                    val: perdido > 0 ? `${perdido.toFixed(1)} kg` : perdido < 0 ? `+${Math.abs(perdido).toFixed(1)} kg` : '—',
                     color: perdido > 0 ? '#10B981' : perdido < 0 ? '#EF4444' : '#6B7280',
                   },
                 ].map(({ label, val, color }) => (
