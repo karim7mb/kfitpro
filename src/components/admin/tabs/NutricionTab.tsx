@@ -303,25 +303,39 @@ function calcTDEE(sexo: 'hombre' | 'mujer', peso: number, altura: number, edad: 
   return Math.round((tdee + OBJ_ADJ[objetivo]) / 50) * 50
 }
 
+const VEGS_SET = new Set(['Brócoli', 'Espinacas', 'Verduras al vapor', 'Ensalada mixta', 'Calabacín', 'Champiñones', 'Lechuga'])
+const MAX_GRAMS: Record<string, number> = {
+  'Proteína whey': 50, 'Aceite de oliva': 30,
+}
+const DEFAULT_MAX = 300
+
 function scaleMealToCalories(alimentos: Alimento[], targetCal: number): Alimento[] {
   const actualCal = alimentos.reduce((s, a) => s + a.calorias, 0)
-  if (actualCal === 0 || Math.abs(actualCal - targetCal) < targetCal * 0.08) return alimentos
-  // Scale the protein source (index 0) to compensate the gap
-  const gap = targetCal - actualCal
-  const protein = alimentos[0]
-  const food = ALIMENTOS_DB.find(x => x.nombre === protein.nombre)
-  if (!food || food.cal100 === 0) return alimentos
-  const extraGrams = Math.round((gap * 100 / food.cal100) / 25) * 25
-  const newGrams = Math.max(25, protein.gramos + extraGrams)
-  const f = newGrams / 100
-  return alimentos.map((a, i) => i !== 0 ? a : {
-    ...a,
-    gramos: newGrams,
-    calorias: Math.round(food.cal100 * f),
-    proteinas: Math.round(food.prot100 * f),
-    carbos: Math.round(food.carbs100 * f),
-    grasas: Math.round(food.fat100 * f),
+  if (actualCal === 0) return alimentos
+  const ratio = targetCal / actualCal
+  if (ratio > 0.90 && ratio < 1.12) return alimentos
+
+  // Scale non-vegetable foods proportionally with per-food caps
+  const scaled = alimentos.map(a => {
+    if (VEGS_SET.has(a.nombre)) return a
+    const cap = MAX_GRAMS[a.nombre] ?? DEFAULT_MAX
+    const newGrams = Math.min(cap, Math.round((a.gramos * ratio) / 25) * 25)
+    const food = ALIMENTOS_DB.find(x => x.nombre === a.nombre)
+    if (!food) return a
+    const f = newGrams / 100
+    return { ...a, gramos: newGrams, calorias: Math.round(food.cal100 * f), proteinas: Math.round(food.prot100 * f), carbos: Math.round(food.carbs100 * f), grasas: Math.round(food.fat100 * f) }
   })
+
+  // If still below target by >12%, add olive oil to cover the gap
+  const scaledCal = scaled.reduce((s, a) => s + a.calorias, 0)
+  if (scaledCal < targetCal * 0.88) {
+    const oilGrams = Math.min(30, Math.round(((targetCal - scaledCal) * 100 / 884) / 5) * 5)
+    if (oilGrams >= 5) {
+      const f = oilGrams / 100
+      scaled.push({ id: Math.random().toString(36).slice(2), nombre: 'Aceite de oliva', gramos: oilGrams, calorias: Math.round(884 * f), proteinas: 0, carbos: 0, grasas: Math.round(100 * f) })
+    }
+  }
+  return scaled
 }
 
 function runGenerator(objetivo: Objetivo, calorias: number, numComidas: number, clienteId: string, entrenadorId: string): PlanNutricional {
