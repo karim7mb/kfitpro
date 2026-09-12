@@ -391,7 +391,7 @@ Las comidas deben sumar aproximadamente ${calorias} kcal (±5%). Macros exactos 
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: 'openai/gpt-oss-120b',
+      model: 'openai/gpt-oss-20b',
       messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
       temperature: 0.7,
       max_tokens: 3000,
@@ -402,8 +402,10 @@ Las comidas deben sumar aproximadamente ${calorias} kcal (±5%). Macros exactos 
 
   const data = await res.json()
   const content: string = data.choices?.[0]?.message?.content ?? ''
-  const jsonMatch = content.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) throw new Error('La IA no devolvió JSON válido')
+  // Strip markdown code blocks and find the JSON array
+  const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim()
+  const jsonMatch = cleaned.match(/\[[\s\S]*\]/)
+  if (!jsonMatch) throw new Error(`Sin JSON: ${cleaned.slice(0, 200)}`)
 
   type RawMeal = { nombre: string; hora: string; alimentos: { nombre: string; gramos: number; calorias: number; proteinas: number; carbos: number; grasas: number }[] }
   const mealData: RawMeal[] = JSON.parse(jsonMatch[0])
