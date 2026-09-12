@@ -1160,13 +1160,36 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
 
 // ─── Shopping List Modal ──────────────────────────────────────────────────────
 const FOOD_CATEGORIES: { label: string; emoji: string; keywords: string[] }[] = [
-  { label: 'Proteínas animales', emoji: '🥩', keywords: ['pollo', 'pavo', 'ternera', 'solomillo', 'cerdo', 'lomo', 'salmón', 'atún', 'merluza', 'bacalao', 'gambas', 'sardinas', 'huevo', 'claras', 'whey', 'proteína', 'pechuga', 'muslo'] },
+  { label: 'Carnes y pescados', emoji: '🥩', keywords: ['pollo', 'pavo', 'ternera', 'solomillo', 'cerdo', 'lomo', 'salmón', 'atún', 'merluza', 'bacalao', 'gambas', 'sardinas', 'pechuga', 'muslo', 'bonito', 'lubina', 'dorada'] },
+  { label: 'Huevos y proteína', emoji: '🥚', keywords: ['huevo', 'claras', 'whey', 'proteína'] },
   { label: 'Lácteos', emoji: '🥛', keywords: ['yogur', 'queso', 'leche', 'requesón', 'kéfir', 'skyr'] },
-  { label: 'Carbohidratos', emoji: '🌾', keywords: ['arroz', 'avena', 'pan', 'patata', 'boniato', 'pasta', 'quinoa', 'tortita', 'maíz', 'centeno', 'tortilla de trigo', 'copos'] },
-  { label: 'Frutas', emoji: '🍎', keywords: ['plátano', 'manzana', 'fresas', 'arándanos', 'naranja', 'kiwi', 'pera', 'uvas', 'piña', 'mango', 'melón', 'sandía', 'frambuesas', 'fruta'] },
-  { label: 'Verduras', emoji: '🥦', keywords: ['brócoli', 'espinacas', 'lechuga', 'calabacín', 'champiñones', 'tomate', 'pimiento', 'cebolla', 'ajo', 'zanahoria', 'pepino', 'coliflor', 'col', 'judías', 'ensalada', 'verdura', 'rúcula', 'acelga'] },
-  { label: 'Grasas y aceites', emoji: '🥑', keywords: ['aceite', 'aguacate', 'nueces', 'almendras', 'mantequilla', 'cacahuete', 'semillas', 'chía', 'lino', 'oliva'] },
+  { label: 'Frutas', emoji: '🍎', keywords: ['plátano', 'manzana', 'fresas', 'arándanos', 'naranja', 'kiwi', 'pera', 'uvas', 'piña', 'mango', 'melón', 'sandía', 'frambuesas', 'fruta', 'mandarina', 'limón'] },
+  { label: 'Verduras', emoji: '🥦', keywords: ['brócoli', 'espinacas', 'lechuga', 'calabacín', 'champiñones', 'tomate', 'pimiento', 'cebolla', 'ajo', 'zanahoria', 'pepino', 'coliflor', 'col', 'judías', 'ensalada', 'verdura', 'rúcula', 'acelga', 'berenjena', 'apio'] },
+  { label: 'Cereales y carbohidratos', emoji: '🌾', keywords: ['arroz', 'avena', 'pan', 'patata', 'boniato', 'pasta', 'quinoa', 'tortita', 'maíz', 'centeno', 'copos', 'harina', 'cuscús'] },
+  { label: 'Aceites y grasas', emoji: '🫒', keywords: ['aceite', 'oliva', 'aguacate', 'nueces', 'almendras', 'mantequilla', 'cacahuete', 'semillas', 'chía', 'lino', 'anacardos'] },
 ]
+
+// Unidades prácticas de compra (España)
+const PRACTICAL_UNITS: { keywords: string[]; unitG: number; unitLabel: string }[] = [
+  { keywords: ['atún en agua', 'bonito del norte'], unitG: 80, unitLabel: 'lata (80g escurrida)' },
+  { keywords: ['sardinas'], unitG: 90, unitLabel: 'lata (90g)' },
+  { keywords: ['yogur griego'], unitG: 125, unitLabel: 'bote (125g)' },
+  { keywords: ['yogur'], unitG: 125, unitLabel: 'bote (125g)' },
+  { keywords: ['huevo entero'], unitG: 60, unitLabel: 'huevo L (60g)' },
+  { keywords: ['claras de huevo'], unitG: 30, unitLabel: 'clara (30g)' },
+  { keywords: ['proteína whey', 'whey'], unitG: 30, unitLabel: 'cacito (30g)' },
+  { keywords: ['pan integral'], unitG: 35, unitLabel: 'rebanada (35g)' },
+  { keywords: ['tortita de arroz'], unitG: 9, unitLabel: 'tortita (9g)' },
+  { keywords: ['pechuga de pollo'], unitG: 150, unitLabel: '½ pechuga (150g)' },
+]
+
+function getPracticalUnit(nombre: string, totalG: number): string {
+  const key = nombre.toLowerCase()
+  const match = PRACTICAL_UNITS.find(u => u.keywords.some(kw => key.includes(kw)))
+  if (!match) return `${totalG}g`
+  const units = Math.ceil(totalG / match.unitG)
+  return `${totalG}g · ${units} ${units === 1 ? match.unitLabel : match.unitLabel.replace(/\(.*\)/, '').trim() + 's'}`
+}
 
 interface ShoppingItem { nombre: string; gramos: number }
 
@@ -1192,6 +1215,8 @@ function categorize(items: ShoppingItem[]): Record<string, ShoppingItem[]> {
 }
 
 function ShoppingListModal({ plan, onClose }: { plan: PlanNutricional; onClose: () => void }) {
+  const [dias, setDias] = useState(7)
+
   const totals = new Map<string, number>()
   for (const comida of plan.comidas) {
     for (const a of comida.alimentos) {
@@ -1199,32 +1224,51 @@ function ShoppingListModal({ plan, onClose }: { plan: PlanNutricional; onClose: 
     }
   }
 
-  const items: ShoppingItem[] = Array.from(totals.entries()).map(([nombre, gramos]) => ({ nombre, gramos }))
+  const items: ShoppingItem[] = Array.from(totals.entries()).map(([nombre, gramos]) => ({
+    nombre,
+    gramos: Math.round(gramos * dias),
+  }))
+
   const categorized = categorize(items)
 
-  const copyText = Object.entries(categorized).map(([cat, foods]) =>
-    `${cat}\n${foods.map(f => `  • ${f.nombre} — ${f.gramos}g`).join('\n')}`
-  ).join('\n\n')
+  const copyText = `🛒 Lista de la compra (${dias} días)\n\n` +
+    Object.entries(categorized).map(([cat, foods]) =>
+      `${cat}\n${foods.map(f => `  • ${f.nombre} — ${getPracticalUnit(f.nombre, f.gramos)}`).join('\n')}`
+    ).join('\n\n')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#161820', border: '1px solid #2a2d3e', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#161820', border: '1px solid #2a2d3e', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1E2130' }}>
           <div>
             <h3 className="font-bold text-white">🛒 Lista de la compra</h3>
-            <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Basada en el plan nutricional del día</p>
+            <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Cantidades para {dias} {dias === 1 ? 'día' : 'días'}</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigator.clipboard?.writeText(copyText)}
+          <div className="flex gap-2 items-center">
+            <button onClick={() => navigator.clipboard?.writeText(copyText)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
-              style={{ background: '#1E2130', color: '#9CA3AF' }}
-            >
+              style={{ background: '#1E2130', color: '#9CA3AF' }}>
               Copiar
             </button>
             <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer text-lg" style={{ background: '#1E2130', color: '#9CA3AF' }}>×</button>
           </div>
         </div>
+
+        {/* Selector de días */}
+        <div className="px-5 py-3 flex gap-2" style={{ borderBottom: '1px solid #1E2130' }}>
+          <span className="text-xs self-center mr-1" style={{ color: '#6B7280' }}>Días:</span>
+          {[1, 3, 5, 7, 14].map(d => (
+            <button key={d} onClick={() => setDias(d)}
+              className="px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer"
+              style={{ background: dias === d ? '#F5611A' : '#1E2130', color: dias === d ? 'white' : '#9CA3AF', border: `1px solid ${dias === d ? '#F5611A' : '#2a2d3e'}` }}>
+              {d === 7 ? '1 semana' : d === 14 ? '2 semanas' : `${d}d`}
+            </button>
+          ))}
+        </div>
+
+        {/* Lista */}
         <div className="overflow-y-auto p-5 space-y-4">
           {Object.entries(categorized).map(([cat, foods]) => (
             <div key={cat}>
@@ -1233,7 +1277,9 @@ function ShoppingListModal({ plan, onClose }: { plan: PlanNutricional; onClose: 
                 {foods.map(f => (
                   <div key={f.nombre} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: '#1E2130' }}>
                     <span className="text-sm text-white">{f.nombre}</span>
-                    <span className="text-xs font-medium" style={{ color: '#6B7280' }}>{f.gramos}g</span>
+                    <span className="text-xs font-medium text-right" style={{ color: '#6B7280', maxWidth: '55%' }}>
+                      {getPracticalUnit(f.nombre, f.gramos)}
+                    </span>
                   </div>
                 ))}
               </div>
