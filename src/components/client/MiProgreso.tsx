@@ -383,20 +383,20 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
                   <XAxis dataKey="mes" tick={{ fill: '#4B5563', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis
                     tick={{ fill: '#4B5563', fontSize: 11 }} axisLine={false} tickLine={false}
-                    domain={([min, max]: [number, number]) => [Math.floor(min - 0.5), Math.ceil(max + 0.5)]}
+                    domain={([min, max]: [number, number]) => [Math.floor(min - 0.5), Math.ceil(max + 0.5)] as [number, number]}
                   />
                   <Tooltip
                     contentStyle={{ background: '#1E2130', border: '1px solid #2a2d3e', borderRadius: 8, fontSize: 12 }}
                     labelStyle={{ color: '#9CA3AF' }}
                     itemStyle={{ color: '#F5611A' }}
-                    formatter={(v: number) => [`${v} kg`, 'Peso']}
+                    formatter={(v: unknown) => [`${v} kg`, 'Peso']}
                   />
                   <Line type="monotone" dataKey="peso" stroke="#F5611A" strokeWidth={2.5}
                     dot={{ fill: '#F5611A', r: 4, strokeWidth: 2, stroke: '#0D0E13' }}
                     activeDot={{ r: 6, fill: '#F5611A' }}>
                     <LabelList dataKey="peso" position="top"
                       style={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 600 }}
-                      formatter={(v: number) => `${v}`} />
+                      formatter={(v: unknown) => `${v}`} />
                   </Line>
                 </LineChart>
               </ResponsiveContainer>
