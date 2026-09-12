@@ -37,7 +37,9 @@ Rules: use Spanish food names, max 250g animal protein per meal, max 200g cooked
     }
 
     const data = await res.json()
-    const content: string = data.choices?.[0]?.message?.content ?? ''
+    const msg = data.choices?.[0]?.message ?? {}
+    const content: string = msg.content ?? msg.reasoning_content ?? ''
+    if (!content) return Response.json({ error: `Respuesta vacía. Keys: ${Object.keys(msg).join(', ')}. Full: ${JSON.stringify(data).slice(0, 400)}` }, { status: 500 })
 
     // Try to extract JSON: first as object with comidas key, then as bare array
     const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '')
@@ -59,7 +61,7 @@ Rules: use Spanish food names, max 250g animal protein per meal, max 200g cooked
       }
     }
 
-    if (!Array.isArray(comidas)) return Response.json({ error: `Sin comidas: ${content.slice(0, 300)}` }, { status: 500 })
+    if (!Array.isArray(comidas)) return Response.json({ error: `Sin comidas: ${content.slice(0, 500)}` }, { status: 500 })
 
     return Response.json({ comidas })
   } catch (e) {
