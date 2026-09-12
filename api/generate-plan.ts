@@ -14,8 +14,7 @@ export default async function handler(req: Request): Promise<Response> {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: 'openai/gpt-oss-120b',
-        response_format: { type: 'json_object' },
-        max_tokens: 1200,
+        max_tokens: 2500,
         temperature: 0.7,
         messages: [
           {
@@ -39,10 +38,28 @@ Rules: use Spanish food names, max 250g animal protein per meal, max 200g cooked
 
     const data = await res.json()
     const content: string = data.choices?.[0]?.message?.content ?? ''
-    const parsed = JSON.parse(content)
-    const comidas = parsed.comidas ?? parsed.meals ?? Object.values(parsed).find(v => Array.isArray(v))
 
-    if (!Array.isArray(comidas)) return Response.json({ error: `Sin comidas: ${content.slice(0, 200)}` }, { status: 500 })
+    // Try to extract JSON: first as object with comidas key, then as bare array
+    const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '')
+    let comidas: unknown[] | null = null
+
+    const objMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (objMatch) {
+      try {
+        const obj = JSON.parse(objMatch[0])
+        const arr = obj.comidas ?? obj.meals ?? Object.values(obj).find(v => Array.isArray(v))
+        if (Array.isArray(arr)) comidas = arr
+      } catch { /* fall through */ }
+    }
+
+    if (!comidas) {
+      const arrMatch = cleaned.match(/\[[\s\S]*\]/)
+      if (arrMatch) {
+        try { comidas = JSON.parse(arrMatch[0]) } catch { /* fall through */ }
+      }
+    }
+
+    if (!Array.isArray(comidas)) return Response.json({ error: `Sin comidas: ${content.slice(0, 300)}` }, { status: 500 })
 
     return Response.json({ comidas })
   } catch (e) {
