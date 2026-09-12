@@ -454,6 +454,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [genActividad, setGenActividad] = useState<Actividad>('moderado')
   const [genManual, setGenManual] = useState(false)
   const [genLoading, setGenLoading] = useState(false)
+  const [showShoppingList, setShowShoppingList] = useState(false)
   const [foodQuery, setFoodQuery] = useState('')
   const [foodResults, setFoodResults] = useState<FoodResult[]>([])
   const [foodSearching, setFoodSearching] = useState(false)
@@ -660,6 +661,13 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => setShowShoppingList(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+            style={{ background: '#1E2130', color: '#9CA3AF', border: '1px solid #2a2d3e' }}
+          >
+            🛒 Lista compra
+          </button>
           <button
             onClick={() => { setGenCalorias(plan.calorias_objetivo); setShowGenerator(true) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold cursor-pointer"
@@ -1142,6 +1150,100 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
           />
         </div>
       )}
+
+      {showShoppingList && plan && (
+        <ShoppingListModal plan={plan} onClose={() => setShowShoppingList(false)} />
+      )}
+    </div>
+  )
+}
+
+// ─── Shopping List Modal ──────────────────────────────────────────────────────
+const FOOD_CATEGORIES: { label: string; emoji: string; keywords: string[] }[] = [
+  { label: 'Proteínas animales', emoji: '🥩', keywords: ['pollo', 'pavo', 'ternera', 'solomillo', 'cerdo', 'lomo', 'salmón', 'atún', 'merluza', 'bacalao', 'gambas', 'sardinas', 'huevo', 'claras', 'whey', 'proteína', 'pechuga', 'muslo'] },
+  { label: 'Lácteos', emoji: '🥛', keywords: ['yogur', 'queso', 'leche', 'requesón', 'kéfir', 'skyr'] },
+  { label: 'Carbohidratos', emoji: '🌾', keywords: ['arroz', 'avena', 'pan', 'patata', 'boniato', 'pasta', 'quinoa', 'tortita', 'maíz', 'centeno', 'tortilla de trigo', 'copos'] },
+  { label: 'Frutas', emoji: '🍎', keywords: ['plátano', 'manzana', 'fresas', 'arándanos', 'naranja', 'kiwi', 'pera', 'uvas', 'piña', 'mango', 'melón', 'sandía', 'frambuesas', 'fruta'] },
+  { label: 'Verduras', emoji: '🥦', keywords: ['brócoli', 'espinacas', 'lechuga', 'calabacín', 'champiñones', 'tomate', 'pimiento', 'cebolla', 'ajo', 'zanahoria', 'pepino', 'coliflor', 'col', 'judías', 'ensalada', 'verdura', 'rúcula', 'acelga'] },
+  { label: 'Grasas y aceites', emoji: '🥑', keywords: ['aceite', 'aguacate', 'nueces', 'almendras', 'mantequilla', 'cacahuete', 'semillas', 'chía', 'lino', 'oliva'] },
+]
+
+interface ShoppingItem { nombre: string; gramos: number }
+
+function categorize(items: ShoppingItem[]): Record<string, ShoppingItem[]> {
+  const result: Record<string, ShoppingItem[]> = {}
+  const used = new Set<string>()
+
+  for (const cat of FOOD_CATEGORIES) {
+    const matched = items.filter(it => {
+      const key = it.nombre.toLowerCase()
+      return cat.keywords.some(kw => key.includes(kw))
+    })
+    if (matched.length) {
+      result[`${cat.emoji} ${cat.label}`] = matched
+      matched.forEach(m => used.add(m.nombre))
+    }
+  }
+
+  const otros = items.filter(it => !used.has(it.nombre))
+  if (otros.length) result['🛒 Otros'] = otros
+
+  return result
+}
+
+function ShoppingListModal({ plan, onClose }: { plan: PlanNutricional; onClose: () => void }) {
+  const totals = new Map<string, number>()
+  for (const comida of plan.comidas) {
+    for (const a of comida.alimentos) {
+      totals.set(a.nombre, (totals.get(a.nombre) ?? 0) + a.gramos)
+    }
+  }
+
+  const items: ShoppingItem[] = Array.from(totals.entries()).map(([nombre, gramos]) => ({ nombre, gramos }))
+  const categorized = categorize(items)
+
+  const copyText = Object.entries(categorized).map(([cat, foods]) =>
+    `${cat}\n${foods.map(f => `  • ${f.nombre} — ${f.gramos}g`).join('\n')}`
+  ).join('\n\n')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#161820', border: '1px solid #2a2d3e', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1E2130' }}>
+          <div>
+            <h3 className="font-bold text-white">🛒 Lista de la compra</h3>
+            <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Basada en el plan nutricional del día</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigator.clipboard?.writeText(copyText)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+              style={{ background: '#1E2130', color: '#9CA3AF' }}
+            >
+              Copiar
+            </button>
+            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer text-lg" style={{ background: '#1E2130', color: '#9CA3AF' }}>×</button>
+          </div>
+        </div>
+        <div className="overflow-y-auto p-5 space-y-4">
+          {Object.entries(categorized).map(([cat, foods]) => (
+            <div key={cat}>
+              <p className="text-sm font-semibold text-white mb-2">{cat}</p>
+              <div className="space-y-1">
+                {foods.map(f => (
+                  <div key={f.nombre} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: '#1E2130' }}>
+                    <span className="text-sm text-white">{f.nombre}</span>
+                    <span className="text-xs font-medium" style={{ color: '#6B7280' }}>{f.gramos}g</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <p className="text-center py-8 text-sm" style={{ color: '#6B7280' }}>El plan no tiene alimentos aún</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

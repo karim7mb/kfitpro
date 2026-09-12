@@ -509,6 +509,7 @@ export interface PerfilEntrenamiento {
   nivel: string
   tiempoIntentando: string
   entrenadorPrevio: boolean
+  lesiones: string[]
 }
 
 export async function fetchPerfilNutricional(clienteId: string): Promise<PerfilNutricional | null> {

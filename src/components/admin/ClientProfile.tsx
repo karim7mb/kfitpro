@@ -5,6 +5,7 @@ import {
   fetchClienteData, updatePesoObjetivo,
   fetchPerfilNutricional, updatePerfilNutricional,
   fetchPerfilEntrenamiento, updatePerfilEntrenamiento,
+  sendMensaje, supabase,
   isDemoMode, type ClienteDisplay, type PerfilNutricional, type PerfilEntrenamiento,
 } from '../../lib/supabase'
 import RutinaTab from './tabs/RutinaTab'
@@ -33,7 +34,7 @@ const tabs: { id: Tab; label: string; icon: React.ComponentType<{ style?: React.
 const isRealId = (id: string) => !id.startsWith('client-') && !id.startsWith('admin-')
 
 const EMPTY_NUTRI: PerfilNutricional = { alergias: [], aversiones: [], preferencias: [], supermercados: [], tipoDieta: 'omnivoro', presupuesto: 'moderado', habilidadCulinaria: 'intermedio', tiempoCocina: '30min' }
-const EMPTY_ENTR: PerfilEntrenamiento = { altura: 170, diasEntreno: 3, tiempoEntrenoSemana: '3-4h', tipoTrabajo: 'sentado', nivel: 'principiante', tiempoIntentando: '1-3meses', entrenadorPrevio: false }
+const EMPTY_ENTR: PerfilEntrenamiento = { altura: 170, diasEntreno: 3, tiempoEntrenoSemana: '3-4h', tipoTrabajo: 'sentado', nivel: 'principiante', tiempoIntentando: '1-3meses', entrenadorPrevio: false, lesiones: [] }
 
 function TagInput({ tags, onAdd, onRemove, placeholder, color }: { tags: string[]; onAdd: (t: string) => void; onRemove: (t: string) => void; placeholder: string; color: string }) {
   const [input, setInput] = useState('')
@@ -101,6 +102,7 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
   const [savingNutri, setSavingNutri] = useState(false)
   const [entr, setEntr] = useState<PerfilEntrenamiento>(EMPTY_ENTR)
   const [savingEntr, setSavingEntr] = useState(false)
+  const [sendingCheckin, setSendingCheckin] = useState(false)
 
   const isReal = isRealId(clientId) && !isDemoMode()
 
@@ -437,6 +439,54 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <SectionLabel>Lesiones / limitaciones físicas</SectionLabel>
+                <p className="text-xs mb-2" style={{ color: '#6B7280' }}>La IA excluirá ejercicios que puedan agravar estas lesiones</p>
+                <TagInput
+                  tags={entr.lesiones ?? []}
+                  onAdd={t => setEntr(p => ({ ...p, lesiones: [...(p.lesiones ?? []), t] }))}
+                  onRemove={t => setEntr(p => ({ ...p, lesiones: (p.lesiones ?? []).filter(x => x !== t) }))}
+                  placeholder="Ej: rodilla derecha, lumbar, hombro izquierdo…"
+                  color="#EF4444"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Check-in semanal */}
+          {isReal && (
+            <div className="rounded-xl p-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-white">📋 Check-in semanal</h3>
+                  <p className="text-xs mt-1" style={{ color: '#6B7280' }}>
+                    Envía 5 preguntas al cliente por chat para hacer seguimiento semanal.<br />
+                    El cliente responde y tú ves las respuestas en la pestaña Chat.
+                  </p>
+                </div>
+                <button
+                  disabled={sendingCheckin}
+                  onClick={async () => {
+                    setSendingCheckin(true)
+                    try {
+                      const { data: { user } } = await supabase.auth.getUser()
+                      if (!user) throw new Error('Sin sesión')
+                      const msg = `📋 *CHECK-IN SEMANAL*\n\nHola ${client.nombre}, responde brevemente estas preguntas:\n\n1️⃣ Del 1 al 10, ¿cómo has seguido el plan de alimentación esta semana?\n2️⃣ Del 1 al 10, ¿cómo te has sentido de energía y rendimiento?\n3️⃣ ¿Cuántas horas de sueño has dormido de media?\n4️⃣ ¿Cuántos entrenamientos has completado esta semana?\n5️⃣ ¿Cuál es tu peso actual? (kg)\n\n¡Gracias! 💪`
+                      await sendMensaje(user.id, clientId, msg)
+                      onToast('Check-in enviado al cliente ✓', 'success')
+                    } catch {
+                      onToast('Error al enviar el check-in', 'error')
+                    } finally {
+                      setSendingCheckin(false)
+                    }
+                  }}
+                  className="shrink-0 px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer"
+                  style={{ background: '#F5611A', opacity: sendingCheckin ? 0.6 : 1 }}
+                >
+                  {sendingCheckin ? '...' : 'Enviar check-in'}
+                </button>
               </div>
             </div>
           )}

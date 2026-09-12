@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, Plus, Loader2, CheckCircle } from 'lucide-react'
 import { demoRutina } from '../../../data/demo'
-import { fetchRutina, upsertRutina, supabase, type RutinaData } from '../../../lib/supabase'
+import { fetchRutina, upsertRutina, fetchPerfilEntrenamiento, supabase, type RutinaData, type DiaRutina } from '../../../lib/supabase'
 
 interface RutinaTabProps {
   rutina: RutinaData
@@ -24,6 +24,7 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
   const [realRutina, setRealRutina] = useState<RutinaData | null | 'loading'>('loading')
   const [assigning, setAssigning] = useState(false)
   const [showPlantillas, setShowPlantillas] = useState(false)
+  const [genLoading, setGenLoading] = useState(false)
 
   useEffect(() => {
     if (!clientId) { setRealRutina(null); return }
@@ -89,27 +90,75 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
             </span>
           )}
         </div>
-        <div className="flex gap-2 relative">
+        <div className="flex gap-2 flex-wrap relative">
           {displayRutina && (
             <button
               onClick={() => setShowPlantillas(s => !s)}
-              disabled={assigning}
+              disabled={assigning || genLoading}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors"
               style={{ background: '#1E2130', color: '#9CA3AF' }}
             >
               <RefreshCw style={{ width: 14, height: 14 }} />
-              Cambiar
+              Plantilla
+            </button>
+          )}
+          {clientId && (
+            <button
+              disabled={genLoading || assigning}
+              onClick={async () => {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+                setGenLoading(true)
+                try {
+                  const perfil = await fetchPerfilEntrenamiento(clientId)
+                  const clienteData = await import('../../../lib/supabase').then(m => m.fetchClienteData(clientId))
+                  const res = await fetch('/api/generate-routine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      nivel: perfil?.nivel ?? 'principiante',
+                      diasEntreno: perfil?.diasEntreno ?? 3,
+                      tiempoEntrenoSemana: perfil?.tiempoEntrenoSemana ?? '3-4h',
+                      objetivo: clienteData?.objetivo ?? 'mantenimiento',
+                      lesiones: perfil?.lesiones ?? [],
+                      nombre: `Rutina IA — ${clienteData?.objetivo ?? 'Entrenamiento'}`,
+                    }),
+                  })
+                  const data = await res.json()
+                  if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`)
+                  const dias: DiaRutina[] = data.dias.map((d: DiaRutina, i: number) => ({
+                    ...d,
+                    id: d.id ?? `d${i}`,
+                    ejercicios: d.ejercicios.map((e, j) => ({ ...e, id: e.id ?? `e${i}-${j}` })),
+                  }))
+                  await upsertRutina(clientId, user.id, { nombre: data.nombre, semana_actual: 1, activa: true, dias })
+                  const updated = await fetchRutina(clientId)
+                  setRealRutina(updated)
+                  onToast('✨ Rutina IA generada. ¡Revísala!', 'success')
+                } catch (e) {
+                  onToast(`Error IA: ${e instanceof Error ? e.message : 'desconocido'}`, 'error')
+                } finally {
+                  setGenLoading(false)
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer"
+              style={{ background: genLoading ? '#7a3010' : '#F5611A', color: 'white', opacity: genLoading ? 0.8 : 1 }}
+            >
+              {genLoading
+                ? <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> Generando...</>
+                : <>✨ Generar con IA</>
+              }
             </button>
           )}
           <button
             onClick={() => setShowPlantillas(s => !s)}
-            disabled={assigning}
+            disabled={assigning || genLoading}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer"
-            style={{ background: '#F5611A', color: 'white', opacity: assigning ? 0.7 : 1 }}
+            style={{ background: '#1E2130', color: '#9CA3AF', border: '1px solid #2a2d3e', opacity: assigning ? 0.7 : 1 }}
           >
             {assigning
               ? <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> Asignando...</>
-              : <><Plus style={{ width: 14, height: 14 }} /> {displayRutina ? 'Nueva' : 'Asignar rutina'}</>
+              : <><Plus style={{ width: 14, height: 14 }} /> {displayRutina ? 'Nueva plantilla' : 'Plantilla manual'}</>
             }
           </button>
 
