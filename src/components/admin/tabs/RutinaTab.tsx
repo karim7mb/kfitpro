@@ -124,14 +124,16 @@ function findMusclewikiVideo(exerciseName: string): { video: string; slug: strin
 
 interface TecnicaModalProps {
   exerciseName: string
-  video: string
-  slug: string
+  video?: string
+  slug?: string
   onClose: () => void
 }
 
 function TecnicaModal({ exerciseName, video, slug, onClose }: TecnicaModalProps) {
-  const videoUrl = `https://musclewiki.com/api-next/videos/${video}`
-  const pageUrl = `https://musclewiki.com/es-es/exercise/${slug}`
+  const videoUrl = video ? `https://musclewiki.com/api-next/videos/${video}` : null
+  const pageUrl = slug ? `https://musclewiki.com/es-es/exercise/${slug}` : null
+  const ytSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(exerciseName + ' técnica correcta')}`
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -153,31 +155,67 @@ function TecnicaModal({ exerciseName, video, slug, onClose }: TecnicaModalProps)
             <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
-        {/* Video */}
-        <div className="relative" style={{ background: '#0d0e14' }}>
-          <video
-            src={videoUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full"
-            style={{ maxHeight: 360, objectFit: 'contain' }}
-          />
-        </div>
-        {/* Footer */}
-        <div className="px-5 py-4 flex items-center justify-between">
-          <p className="text-xs" style={{ color: '#6B7280' }}>Fuente: MuscleWiki</p>
-          <a
-            href={pageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer"
-            style={{ color: '#F5611A' }}
-          >
-            Ver ejercicio completo <ExternalLink style={{ width: 12, height: 12 }} />
-          </a>
-        </div>
+
+        {videoUrl ? (
+          <>
+            {/* MuscleWiki video */}
+            <div style={{ background: '#0d0e14' }}>
+              <video
+                src={videoUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full"
+                style={{ maxHeight: 360, objectFit: 'contain' }}
+              />
+            </div>
+            <div className="px-5 py-4 flex items-center justify-between">
+              <p className="text-xs" style={{ color: '#6B7280' }}>Fuente: MuscleWiki</p>
+              <div className="flex items-center gap-3">
+                <a
+                  href={ytSearch}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs cursor-pointer"
+                  style={{ color: '#6B7280' }}
+                >
+                  YouTube <ExternalLink style={{ width: 10, height: 10 }} />
+                </a>
+                {pageUrl && (
+                  <a
+                    href={pageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                    style={{ color: '#F5611A' }}
+                  >
+                    Ver completo <ExternalLink style={{ width: 12, height: 12 }} />
+                  </a>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* YouTube fallback para ejercicios sin vídeo en MuscleWiki */
+          <div className="px-5 py-8 flex flex-col items-center gap-4 text-center">
+            <div className="text-4xl">📺</div>
+            <div>
+              <p className="text-white font-medium mb-1">Ver técnica en YouTube</p>
+              <p className="text-sm" style={{ color: '#6B7280' }}>Este ejercicio no está disponible en MuscleWiki</p>
+            </div>
+            <a
+              href={ytSearch}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+              style={{ background: '#FF0000', color: 'white' }}
+            >
+              <ExternalLink style={{ width: 14, height: 14 }} />
+              Buscar en YouTube
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -194,7 +232,7 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
   const [assigning, setAssigning] = useState(false)
   const [showPlantillas, setShowPlantillas] = useState(false)
   const [genLoading, setGenLoading] = useState(false)
-  const [tecnicaModal, setTecnicaModal] = useState<{ name: string; video: string; slug: string } | null>(null)
+  const [tecnicaModal, setTecnicaModal] = useState<{ name: string; video?: string; slug?: string } | null>(null)
 
   useEffect(() => {
     if (!clientId) { setRealRutina(null); return }
@@ -396,17 +434,19 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
                           {ej.peso > 0 && ` · ${ej.peso} kg`}
                         </span>
                       </div>
-                      {mw && (
-                        <button
-                          onClick={() => setTecnicaModal({ name: ej.nombre, video: mw.video, slug: mw.slug })}
-                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg cursor-pointer shrink-0"
-                          style={{ background: 'rgba(245,97,26,0.12)', color: '#F5611A', border: '1px solid rgba(245,97,26,0.25)' }}
-                          title="Ver técnica correcta"
-                        >
-                          <Play style={{ width: 10, height: 10 }} />
-                          Técnica
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setTecnicaModal({ name: ej.nombre, video: mw?.video, slug: mw?.slug })}
+                        className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg cursor-pointer shrink-0"
+                        style={{
+                          background: mw ? 'rgba(245,97,26,0.12)' : 'rgba(107,114,128,0.12)',
+                          color: mw ? '#F5611A' : '#6B7280',
+                          border: `1px solid ${mw ? 'rgba(245,97,26,0.25)' : 'rgba(107,114,128,0.2)'}`,
+                        }}
+                        title="Ver técnica correcta"
+                      >
+                        <Play style={{ width: 10, height: 10 }} />
+                        Técnica
+                      </button>
                       <span
                         className="text-xs px-2 py-0.5 rounded-full font-bold shrink-0"
                         style={{ background: `${RpeColor(ej.rpe)}20`, color: RpeColor(ej.rpe) }}
