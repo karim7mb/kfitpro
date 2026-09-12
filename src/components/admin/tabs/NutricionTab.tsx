@@ -10,14 +10,31 @@ const MEAL_EN: Record<string, string> = {
   postentrenamiento: 'post workout meal',
 }
 
+const FOOD_EN: Record<string, string> = {
+  avena: 'oatmeal', 'claras de huevo': 'egg white omelette', arándanos: 'blueberries',
+  'pechuga de pollo': 'grilled chicken breast', 'arroz integral': 'brown rice',
+  'verduras al vapor': 'steamed vegetables', 'batido de proteína': 'protein shake',
+  manzana: 'apple', merluza: 'baked fish fillet', boniato: 'sweet potato',
+  'ensalada verde': 'green salad', salmón: 'salmon fillet', brócoli: 'broccoli',
+  'patata dulce': 'sweet potato', huevo: 'eggs', atún: 'tuna', ternera: 'beef',
+  'arroz blanco': 'white rice', pasta: 'pasta', yogur: 'yogurt', plátano: 'banana',
+  'nueces': 'walnuts', 'aguacate': 'avocado', espinacas: 'spinach',
+}
+
+function translateFood(nombre: string): string {
+  const key = nombre.toLowerCase().trim()
+  return FOOD_EN[key] ?? nombre
+}
+
 async function buscarFotoUnsplash(comida: ComidaPlan): Promise<string | { error: string }> {
   if (!UNSPLASH_KEY) return { error: 'Sin API key' }
   const nombreEn = MEAL_EN[comida.nombre.toLowerCase().trim()] ?? comida.nombre
-  const mainIngredient = comida.alimentos[0]?.nombre ?? ''
+  const mainEn = translateFood(comida.alimentos[0]?.nombre ?? '')
+  const secondEn = translateFood(comida.alimentos[1]?.nombre ?? '')
   const queries = [
-    `${nombreEn} ${mainIngredient} food plate`,
-    `${nombreEn} healthy food`,
-    'healthy meal food plate',
+    `${mainEn} ${secondEn} plated dish food photography`,
+    `${nombreEn} ${mainEn} plated meal`,
+    `${nombreEn} healthy plated dish`,
   ]
   for (const q of queries) {
     const res = await fetch(
