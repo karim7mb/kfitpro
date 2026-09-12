@@ -63,7 +63,7 @@ interface FoodResult {
 
 async function searchOpenFoodFacts(query: string): Promise<FoodResult[] | { error: string }> {
   try {
-    const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&fields=product_name%2Cnutriments&page_size=10&sort_by=unique_scans_n`
+    const url = `https://es.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&fields=product_name%2Cnutriments&page_size=10&sort_by=unique_scans_n&lc=es`
     const res = await fetch(url)
     if (!res.ok) return { error: `HTTP ${res.status}` }
     const data = await res.json()
