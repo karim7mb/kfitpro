@@ -331,8 +331,10 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
     setPendingUploadMealId(null)
     setUploadingFoto(mealId)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Sin sesión')
       const ext = file.name.split('.').pop() || 'jpg'
-      const path = `meal-photos/${mealId}/${Date.now()}.${ext}`
+      const path = `${user.id}/meal-${mealId}-${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
         .from('progress-photos')
         .upload(path, file, { contentType: file.type, upsert: true })
