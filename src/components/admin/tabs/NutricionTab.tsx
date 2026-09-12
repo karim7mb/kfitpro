@@ -373,10 +373,10 @@ Reglas: alimentos españoles, porciones realistas (máx 250g proteína, máx 200
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: 'openai/gpt-oss-20b',
+      model: 'groq/compound-mini',
       messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
       temperature: 0.7,
-      max_tokens: 1500,
+      max_tokens: 800,
     }),
   })
 
