@@ -344,41 +344,22 @@ async function generatePlanWithGroq(
   actividad: Actividad, objetivo: Objetivo, calorias: number, numComidas: number,
   clienteId: string, entrenadorId: string
 ): Promise<PlanNutricional> {
-  if (!GROQ_KEY) throw new Error('Sin API key de Groq')
-
   const [pPct, cPct] = MACRO_SPLITS[objetivo]
   const protG  = Math.round((calorias * pPct) / 4)
   const carbsG = Math.round((calorias * cPct) / 4)
   const fatG   = Math.round((calorias * (1 - pPct - cPct)) / 9)
 
-  const systemPrompt = `Sports nutritionist. Reply ONLY with a valid JSON array, no markdown, no explanation.
-Format: [{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]}]
-Rules: Spanish food names, realistic portions (max 250g animal protein, max 200g cooked carbs, max 40g whey), include vegetables in main meals, accurate macros per grams.`
-
-  const userPrompt = `Create a ${numComidas}-meal daily plan: ${sexo} ${edad}yo ${peso}kg ${altura}cm, ${actividad} activity, ${objetivo} goal, ${calorias}kcal target. Macros: ${protG}g protein ${carbsG}g carbs ${fatG}g fat. JSON only.`
-
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const res = await fetch('/api/generate-plan', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-    body: JSON.stringify({
-      model: 'openai/gpt-oss-120b',
-      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-      temperature: 0.7,
-      max_tokens: 800,
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sexo, edad, peso, altura, actividad, objetivo, calorias, numComidas, protG, carbsG, fatG }),
   })
 
-  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`)
-
   const data = await res.json()
-  const content: string = data.choices?.[0]?.message?.content ?? ''
-  // Strip markdown code blocks and find the JSON array
-  const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim()
-  const jsonMatch = cleaned.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) throw new Error(`Sin JSON: ${cleaned.slice(0, 200)}`)
+  if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`)
 
   type RawMeal = { nombre: string; hora: string; alimentos: { nombre: string; gramos: number; calorias: number; proteinas: number; carbos: number; grasas: number }[] }
-  const mealData: RawMeal[] = JSON.parse(jsonMatch[0])
+  const mealData: RawMeal[] = data.comidas
 
   const planLabels: Record<Objetivo, string> = { definicion: 'Definición', volumen: 'Volumen', mantenimiento: 'Mantenimiento', perdida: 'Pérdida de grasa' }
   return {
