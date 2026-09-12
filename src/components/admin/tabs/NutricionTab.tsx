@@ -391,7 +391,7 @@ Las comidas deben sumar aproximadamente ${calorias} kcal (±5%). Macros exactos 
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: 'openai/gpt-oss-20b',
+      model: 'groq/compound',
       messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
       temperature: 0.7,
       max_tokens: 3000,
