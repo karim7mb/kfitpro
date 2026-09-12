@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Save, Image, Upload } from 'lucide-react'
-import { supabase, fetchPlanNutricional, upsertPlanNutricional, fetchClienteData, fetchRegistrosPeso, type PlanNutricional, type ComidaPlan, type Alimento } from '../../../lib/supabase'
+import { supabase, fetchPlanNutricional, upsertPlanNutricional, fetchClienteData, fetchRegistrosPeso, fetchPerfilNutricional, type PlanNutricional, type ComidaPlan, type Alimento, type PerfilNutricional } from '../../../lib/supabase'
 
 const UNSPLASH_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY as string | undefined
-const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY as string | undefined
 
 const MEAL_EN: Record<string, string> = {
   desayuno: 'breakfast', almuerzo: 'lunch', comida: 'lunch',
@@ -342,7 +341,8 @@ function scaleMealToCalories(alimentos: Alimento[], targetCal: number): Alimento
 async function generatePlanWithGroq(
   sexo: 'hombre' | 'mujer', edad: number, peso: number, altura: number,
   actividad: Actividad, objetivo: Objetivo, calorias: number, numComidas: number,
-  clienteId: string, entrenadorId: string
+  clienteId: string, entrenadorId: string,
+  perfilNutricional?: PerfilNutricional | null
 ): Promise<PlanNutricional> {
   const [pPct, cPct] = MACRO_SPLITS[objetivo]
   const protG  = Math.round((calorias * pPct) / 4)
@@ -352,7 +352,7 @@ async function generatePlanWithGroq(
   const res = await fetch('/api/generate-plan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sexo, edad, peso, altura, actividad, objetivo, calorias, numComidas, protG, carbsG, fatG }),
+    body: JSON.stringify({ sexo, edad, peso, altura, actividad, objetivo, calorias, numComidas, protG, carbsG, fatG, perfilNutricional }),
   })
 
   const data = await res.json()
@@ -1070,7 +1070,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
             </div>
 
             <div className="space-y-2">
-              {GROQ_KEY && (
+              {(
                 <button
                   disabled={genLoading}
                   onClick={async () => {
@@ -1078,7 +1078,8 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
                     if (!user) return
                     setGenLoading(true)
                     try {
-                      const generated = await generatePlanWithGroq(genSexo, genEdad, genPeso, genAltura, genActividad, genObjetivo, genCalorias, genComidas, clientId, user.id)
+                      const perfil = isDemo(clientId) ? null : await fetchPerfilNutricional(clientId)
+                      const generated = await generatePlanWithGroq(genSexo, genEdad, genPeso, genAltura, genActividad, genObjetivo, genCalorias, genComidas, clientId, user.id, perfil)
                       if (plan?.id) generated.id = plan.id
                       setPlan(generated)
                       setShowGenerator(false)

@@ -489,3 +489,29 @@ export async function completeClientProfile(password: string) {
   const { error } = await supabase.auth.updateUser({ password })
   if (error) throw error
 }
+
+export interface PerfilNutricional {
+  alergias: string[]
+  aversiones: string[]
+  tipoDieta: string
+  presupuesto: string
+  habilidadCulinaria: string
+}
+
+export async function fetchPerfilNutricional(clienteId: string): Promise<PerfilNutricional | null> {
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('perfil_nutricional')
+    .eq('usuario_id', clienteId)
+    .single()
+  if (error || !data?.perfil_nutricional) return null
+  return data.perfil_nutricional as PerfilNutricional
+}
+
+export async function updatePerfilNutricional(clienteId: string, perfil: PerfilNutricional): Promise<void> {
+  const { error } = await supabase
+    .from('clientes')
+    .update({ perfil_nutricional: perfil })
+    .eq('usuario_id', clienteId)
+  if (error) throw error
+}
