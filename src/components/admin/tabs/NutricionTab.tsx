@@ -245,8 +245,11 @@ function generateMealFoods(tipo: 'desayuno' | 'almuerzo' | 'merienda' | 'cena' |
     const pf = dbFood(pickRandom(PROT_MORNING))
     const cf = dbFood(pickRandom(CARB_MORNING))
     const ff = dbFood(pickRandom(FRUTAS))
+    const protGrams = pf.nombre === 'Proteína whey'
+      ? 40
+      : gramsForProt(targetProt * 0.75, pf)
     return [
-      mk(pf, gramsForProt(targetProt * 0.75, pf)),
+      mk(pf, protGrams),
       mk(cf, gramsForCarbs(targetCarbs * 0.80, cf)),
       mk(ff, 100),
     ]
@@ -269,7 +272,7 @@ function generateMealFoods(tipo: 'desayuno' | 'almuerzo' | 'merienda' | 'cena' |
     const useShake = Math.random() > 0.5
     const pf = dbFood(useShake ? 'Proteína whey' : 'Yogur griego 0%')
     const ff = dbFood(pickRandom(FRUTAS))
-    return [mk(pf, useShake ? 30 : 150), mk(ff, 150)]
+    return [mk(pf, useShake ? 35 : 150), mk(ff, 150)]
   }
   // snack / pre-entreno
   const cf = dbFood(pickRandom(['Plátano', 'Tortita de arroz', 'Avena en copos']))
