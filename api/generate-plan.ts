@@ -1,41 +1,54 @@
 export const config = { runtime: 'edge' }
 
-function findArray(obj: unknown): unknown[] | null {
-  if (Array.isArray(obj) && obj.length > 0) return obj
-  if (typeof obj === 'object' && obj !== null) {
-    for (const v of Object.values(obj as Record<string, unknown>)) {
-      const found = findArray(v)
-      if (found) return found
-    }
-  }
-  return null
-}
-
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
   try {
     const { sexo, edad, peso, altura, actividad, objetivo, calorias, numComidas, protG, carbsG, fatG } = await req.json()
 
-    const apiKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY
-    if (!apiKey) return Response.json({ error: 'Sin API key de Groq' }, { status: 500 })
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) return Response.json({ error: 'Sin ANTHROPIC_API_KEY' }, { status: 500 })
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const objLabels: Record<string, string> = {
+      definicion: 'definición muscular (déficit -400 kcal)',
+      volumen: 'volumen muscular (superávit +400 kcal)',
+      mantenimiento: 'mantenimiento de peso',
+      perdida: 'pérdida de grasa (déficit -600 kcal)',
+    }
+    const actLabels: Record<string, string> = {
+      sedentario: 'sedentario',
+      ligero: 'actividad ligera (1-3 días/semana)',
+      moderado: 'actividad moderada (4-5 días/semana)',
+      activo: 'muy activo (6-7 días/semana)',
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2500,
-        temperature: 0.7,
+        system: `Eres un nutricionista deportivo experto. Creas planes de alimentación realistas para personas que hacen ejercicio.
+Reglas de porciones: máx 220g proteína animal por comida, máx 180g carbohidrato cocido por comida, máx 35g proteína whey, aceite de oliva máx 15g.
+Definición/pérdida: sin carbohidratos en la cena. Volumen: carbohidratos en todas las comidas.
+Siempre incluye verduras en comidas principales. Los macros deben ser exactos para los gramos indicados.
+IMPORTANTE: Responde ÚNICAMENTE con el JSON, sin texto adicional, sin markdown.`,
         messages: [
           {
             role: 'user',
-            content: `You are a sports nutritionist. Create a ${numComidas}-meal daily plan for: ${sexo} ${edad}yo ${peso}kg ${altura}cm, ${actividad} activity, ${objetivo} goal, ${calorias} kcal. Macros: ${protG}g protein, ${carbsG}g carbs, ${fatG}g fat.
+            content: `Crea un plan nutricional diario de ${numComidas} comidas para:
+- Sexo: ${sexo}, Edad: ${edad} años, Peso: ${peso} kg, Altura: ${altura} cm
+- Actividad: ${actLabels[actividad] ?? actividad}
+- Objetivo: ${objLabels[objetivo] ?? objetivo}
+- Calorías objetivo: ${calorias} kcal/día
+- Macros objetivo: ${protG}g proteínas · ${carbsG}g carbohidratos · ${fatG}g grasas
 
-Return ONLY a JSON object like this (no other text):
-{"comidas":[{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]},{"nombre":"Almuerzo","hora":"13:00","alimentos":[{"nombre":"Pechuga de pollo","gramos":180,"calorias":198,"proteinas":41,"carbos":0,"grasas":4}]}]}
-
-Use Spanish food names. Max 250g protein per meal, max 200g cooked carbs, max 40g whey. Include vegetables in main meals.`,
+Devuelve SOLO este JSON (sin ningún texto antes o después):
+{"comidas":[{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6},{"nombre":"Claras de huevo","gramos":150,"calorias":78,"proteinas":16,"carbos":1,"grasas":0}]},{"nombre":"Almuerzo","hora":"13:00","alimentos":[{"nombre":"Pechuga de pollo","gramos":180,"calorias":198,"proteinas":41,"carbos":0,"grasas":4},{"nombre":"Arroz integral cocido","gramos":150,"calorias":185,"proteinas":4,"carbos":39,"grasas":2},{"nombre":"Brócoli","gramos":150,"calorias":51,"proteinas":4,"carbos":10,"grasas":0}]}]}`,
           },
         ],
       }),
@@ -43,33 +56,27 @@ Use Spanish food names. Max 250g protein per meal, max 200g cooked carbs, max 40
 
     if (!res.ok) {
       const err = await res.text()
-      return Response.json({ error: `Groq ${res.status}: ${err}` }, { status: 500 })
+      return Response.json({ error: `Claude ${res.status}: ${err}` }, { status: 500 })
     }
 
     const data = await res.json()
-    const msg = data.choices?.[0]?.message ?? {}
-    const content: string = msg.content ?? msg.reasoning_content ?? ''
+    const content: string = data.content?.[0]?.type === 'text' ? data.content[0].text : ''
+    if (!content) return Response.json({ error: 'Respuesta vacía de Claude' }, { status: 500 })
 
-    if (!content) {
-      return Response.json({ error: `Vacío. Keys: ${Object.keys(msg).join(',')} | ${JSON.stringify(data).slice(0, 300)}` }, { status: 500 })
-    }
+    const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim()
 
-    // Extract JSON from response (strip markdown if present)
-    const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '')
-
-    // Try JSON object first, then array
     for (const pattern of [/\{[\s\S]*\}/, /\[[\s\S]*\]/]) {
       const match = cleaned.match(pattern)
       if (match) {
         try {
           const parsed = JSON.parse(match[0])
-          const comidas = findArray(parsed)
-          if (comidas && comidas.length > 0) return Response.json({ comidas })
+          const comidas = Array.isArray(parsed) ? parsed : (parsed.comidas ?? parsed.meals ?? Object.values(parsed as Record<string, unknown>).find(v => Array.isArray(v)))
+          if (Array.isArray(comidas) && comidas.length > 0) return Response.json({ comidas })
         } catch { /* continue */ }
       }
     }
 
-    return Response.json({ error: `Sin JSON. Modelo devolvió: ${content.slice(0, 500)}` }, { status: 500 })
+    return Response.json({ error: `Sin JSON válido: ${content.slice(0, 300)}` }, { status: 500 })
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 })
   }
