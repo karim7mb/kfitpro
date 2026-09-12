@@ -10,20 +10,28 @@ const MEAL_EN: Record<string, string> = {
   postentrenamiento: 'post workout meal',
 }
 
-async function buscarFotoUnsplash(comida: ComidaPlan): Promise<string | null> {
-  if (!UNSPLASH_KEY) return null
+async function buscarFotoUnsplash(comida: ComidaPlan): Promise<string | { error: string }> {
+  if (!UNSPLASH_KEY) return { error: 'Sin API key' }
   const nombreEn = MEAL_EN[comida.nombre.toLowerCase().trim()] ?? comida.nombre
   const mainIngredient = comida.alimentos[0]?.nombre ?? ''
-  const query = encodeURIComponent(`${nombreEn} ${mainIngredient} food plate`)
-  const res = await fetch(
-    `https://api.unsplash.com/search/photos?query=${query}&per_page=6&orientation=landscape&client_id=${UNSPLASH_KEY}`
-  )
-  if (!res.ok) return null
-  const data = await res.json()
-  const results: { urls: { regular: string } }[] = data.results ?? []
-  if (results.length === 0) return null
-  const idx = Math.floor(Math.random() * Math.min(results.length, 4))
-  return results[idx].urls.regular
+  const queries = [
+    `${nombreEn} ${mainIngredient} food plate`,
+    `${nombreEn} healthy food`,
+    'healthy meal food plate',
+  ]
+  for (const q of queries) {
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=6&orientation=landscape&client_id=${UNSPLASH_KEY}`
+    )
+    if (!res.ok) return { error: `HTTP ${res.status}` }
+    const data = await res.json()
+    const results: { urls: { regular: string } }[] = data.results ?? []
+    if (results.length > 0) {
+      const idx = Math.floor(Math.random() * Math.min(results.length, 4))
+      return results[idx].urls.regular
+    }
+  }
+  return { error: 'Sin resultados' }
 }
 
 interface NutricionTabProps {
@@ -109,11 +117,14 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const handleBuscarFoto = async (comida: ComidaPlan) => {
     setSearchingFoto(comida.id)
     try {
-      const url = await buscarFotoUnsplash(comida)
-      if (url) updateComida(comida.id, 'foto_url', url)
-      else onToast('No se encontró foto. Añade VITE_UNSPLASH_ACCESS_KEY al .env', 'error')
-    } catch {
-      onToast('Error al buscar foto', 'error')
+      const result = await buscarFotoUnsplash(comida)
+      if (typeof result === 'string') {
+        updateComida(comida.id, 'foto_url', result)
+      } else {
+        onToast(`Error Unsplash: ${result.error}`, 'error')
+      }
+    } catch (e) {
+      onToast(`Error: ${e instanceof Error ? e.message : 'desconocido'}`, 'error')
     } finally {
       setSearchingFoto(null)
     }
