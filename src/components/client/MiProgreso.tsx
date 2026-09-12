@@ -90,6 +90,7 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
   const [savingPR, setSavingPR] = useState(false)
 
   const [uploadingFoto, setUploadingFoto] = useState(false)
+  const [lightbox, setLightbox] = useState<{ url: string; fecha: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const hoy = new Date().toISOString().split('T')[0]
@@ -665,7 +666,9 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
             {fotos.length > 0 ? (
               <div className="px-5 pb-5 grid grid-cols-2 gap-2">
                 {fotos.map(f => (
-                  <div key={f.id} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '1', background: '#1E2130' }}>
+                  <div key={f.id} className="relative rounded-xl overflow-hidden cursor-pointer"
+                    style={{ aspectRatio: '1', background: '#1E2130' }}
+                    onClick={() => setLightbox({ url: f.url, fecha: f.fecha })}>
                     <img src={f.url} alt={formatFecha(f.fecha)} className="w-full h-full object-cover" />
                     <div className="absolute bottom-0 left-0 right-0 px-2 py-1 text-xs"
                       style={{ background: 'rgba(0,0,0,0.6)', color: '#9CA3AF' }}>
@@ -711,6 +714,24 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.92)' }}
+          onClick={() => setLightbox(null)}>
+          <div className="px-4 pb-3 w-full flex items-center justify-between">
+            <span className="text-sm" style={{ color: '#9CA3AF' }}>{formatFecha(lightbox.fecha)}</span>
+            <button className="text-white text-2xl leading-none cursor-pointer" onClick={() => setLightbox(null)}>×</button>
+          </div>
+          <img
+            src={lightbox.url}
+            alt={formatFecha(lightbox.fecha)}
+            className="max-w-full max-h-[80vh] rounded-xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
