@@ -185,6 +185,117 @@ async function searchFoods(query: string): Promise<FoodResult[] | { error: strin
   }
 }
 
+// ─── Plan Generator ───────────────────────────────────────────────────────────
+type Objetivo = 'definicion' | 'volumen' | 'mantenimiento' | 'perdida'
+
+const MACRO_SPLITS: Record<Objetivo, [number, number, number]> = {
+  definicion:    [0.40, 0.35, 0.25],
+  volumen:       [0.30, 0.50, 0.20],
+  mantenimiento: [0.30, 0.45, 0.25],
+  perdida:       [0.42, 0.28, 0.30],
+}
+
+const MEAL_TEMPLATES: Record<number, { nombre: string; hora: string; pct: number; tipo: 'desayuno' | 'almuerzo' | 'merienda' | 'cena' | 'snack' }[]> = {
+  3: [
+    { nombre: 'Desayuno', hora: '08:00', pct: 0.30, tipo: 'desayuno' },
+    { nombre: 'Almuerzo', hora: '14:00', pct: 0.42, tipo: 'almuerzo' },
+    { nombre: 'Cena',     hora: '21:00', pct: 0.28, tipo: 'cena' },
+  ],
+  4: [
+    { nombre: 'Desayuno', hora: '08:00', pct: 0.25, tipo: 'desayuno' },
+    { nombre: 'Almuerzo', hora: '13:00', pct: 0.35, tipo: 'almuerzo' },
+    { nombre: 'Merienda', hora: '17:00', pct: 0.15, tipo: 'merienda' },
+    { nombre: 'Cena',     hora: '21:00', pct: 0.25, tipo: 'cena' },
+  ],
+  5: [
+    { nombre: 'Desayuno',       hora: '08:00', pct: 0.20, tipo: 'desayuno' },
+    { nombre: 'Almuerzo',       hora: '13:00', pct: 0.30, tipo: 'almuerzo' },
+    { nombre: 'Merienda',       hora: '17:00', pct: 0.15, tipo: 'merienda' },
+    { nombre: 'Cena',           hora: '20:30', pct: 0.25, tipo: 'cena' },
+    { nombre: 'Pre-entreno',    hora: '19:00', pct: 0.10, tipo: 'snack' },
+  ],
+}
+
+const PROT_MORNING  = ['Claras de huevo', 'Huevo entero', 'Yogur griego 0%', 'Proteína whey']
+const PROT_MAIN     = ['Pechuga de pollo', 'Pavo (pechuga)', 'Salmón', 'Atún en agua', 'Merluza', 'Ternera magra', 'Gambas']
+const CARB_MORNING  = ['Avena en copos', 'Pan integral', 'Tortita de arroz']
+const CARB_MAIN     = ['Arroz integral cocido', 'Arroz blanco cocido', 'Patata cocida', 'Pasta cocida', 'Patata dulce / Boniato', 'Quinoa cocida']
+const VEGETALES     = ['Brócoli', 'Espinacas', 'Verduras al vapor', 'Ensalada mixta', 'Calabacín', 'Champiñones']
+const FRUTAS        = ['Plátano', 'Manzana', 'Fresas', 'Arándanos', 'Naranja', 'Kiwi']
+
+function pickRandom<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)] }
+function dbFood(nombre: string): FoodResult { return ALIMENTOS_DB.find(f => f.nombre === nombre) ?? ALIMENTOS_DB[0] }
+
+function makeAlimento(food: FoodResult, gramos: number): Omit<Alimento, 'id'> {
+  const f = gramos / 100
+  return { nombre: food.nombre, gramos, calorias: Math.round(food.cal100 * f), proteinas: Math.round(food.prot100 * f), carbos: Math.round(food.carbs100 * f), grasas: Math.round(food.fat100 * f) }
+}
+
+function gramsForProt(targetProt: number, food: FoodResult): number {
+  return Math.max(25, Math.round((targetProt * 100 / Math.max(food.prot100, 1)) / 25) * 25)
+}
+function gramsForCarbs(targetCarbs: number, food: FoodResult): number {
+  return Math.max(25, Math.round((targetCarbs * 100 / Math.max(food.carbs100, 1)) / 25) * 25)
+}
+
+function generateMealFoods(tipo: 'desayuno' | 'almuerzo' | 'merienda' | 'cena' | 'snack', targetProt: number, targetCarbs: number, objetivo: Objetivo): Alimento[] {
+  const mk = (f: FoodResult, g: number): Alimento => ({ id: Math.random().toString(36).slice(2), ...makeAlimento(f, g) })
+
+  if (tipo === 'desayuno') {
+    const pf = dbFood(pickRandom(PROT_MORNING))
+    const cf = dbFood(pickRandom(CARB_MORNING))
+    const ff = dbFood(pickRandom(FRUTAS))
+    return [
+      mk(pf, gramsForProt(targetProt * 0.75, pf)),
+      mk(cf, gramsForCarbs(targetCarbs * 0.80, cf)),
+      mk(ff, 100),
+    ]
+  }
+  if (tipo === 'almuerzo' || tipo === 'cena') {
+    const pf = dbFood(pickRandom(PROT_MAIN))
+    const vf = dbFood(pickRandom(VEGETALES))
+    const skipCarbs = tipo === 'cena' && (objetivo === 'definicion' || objetivo === 'perdida')
+    const items: Alimento[] = [
+      mk(pf, Math.max(gramsForProt(targetProt * 0.85, pf), 100)),
+      mk(vf, 150),
+    ]
+    if (!skipCarbs) {
+      const cf = dbFood(pickRandom(CARB_MAIN))
+      items.splice(1, 0, mk(cf, gramsForCarbs(targetCarbs * 0.85, cf)))
+    }
+    return items
+  }
+  if (tipo === 'merienda') {
+    const useShake = Math.random() > 0.5
+    const pf = dbFood(useShake ? 'Proteína whey' : 'Yogur griego 0%')
+    const ff = dbFood(pickRandom(FRUTAS))
+    return [mk(pf, useShake ? 30 : 150), mk(ff, 150)]
+  }
+  // snack / pre-entreno
+  const cf = dbFood(pickRandom(['Plátano', 'Tortita de arroz', 'Avena en copos']))
+  return [mk(cf, cf.nombre === 'Avena en copos' ? 50 : 100)]
+}
+
+function runGenerator(objetivo: Objetivo, calorias: number, numComidas: number, clienteId: string, entrenadorId: string): PlanNutricional {
+  const [pPct, cPct] = MACRO_SPLITS[objetivo]
+  const fPct = 1 - pPct - cPct
+  const totalProt  = Math.round((calorias * pPct) / 4)
+  const totalCarbs = Math.round((calorias * cPct) / 4)
+  const totalFat   = Math.round((calorias * fPct) / 9)
+
+  const templates = MEAL_TEMPLATES[numComidas] ?? MEAL_TEMPLATES[4]
+  const comidas: ComidaPlan[] = templates.map(t => ({
+    id: Math.random().toString(36).slice(2),
+    nombre: t.nombre,
+    hora: t.hora,
+    alimentos: generateMealFoods(t.tipo, Math.round(totalProt * t.pct), Math.round(totalCarbs * t.pct), objetivo),
+  }))
+
+  const labels: Record<Objetivo, string> = { definicion: 'Definición', volumen: 'Volumen', mantenimiento: 'Mantenimiento', perdida: 'Pérdida de grasa' }
+  return { cliente_id: clienteId, entrenador_id: entrenadorId, nombre: `Plan ${labels[objetivo]} — ${calorias} kcal`, calorias_objetivo: calorias, proteinas_g: totalProt, carbos_g: totalCarbs, grasas_g: totalFat, comidas }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 interface NutricionTabProps {
   clientId: string
   onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
@@ -225,6 +336,10 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [pendingUploadMealId, setPendingUploadMealId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showGenerator, setShowGenerator] = useState(false)
+  const [genObjetivo, setGenObjetivo] = useState<Objetivo>('definicion')
+  const [genCalorias, setGenCalorias] = useState(2000)
+  const [genComidas, setGenComidas] = useState(4)
   const [foodQuery, setFoodQuery] = useState('')
   const [foodResults, setFoodResults] = useState<FoodResult[]>([])
   const [foodSearching, setFoodSearching] = useState(false)
@@ -403,26 +518,35 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
           <input
             value={plan.nombre}
             onChange={e => setPlan(p => p ? { ...p, nombre: e.target.value } : p)}
-            className="font-bold text-white text-lg bg-transparent outline-none border-b border-transparent focus:border-orange-500"
+            className="font-bold text-white text-lg bg-transparent outline-none border-b border-transparent focus:border-orange-500 w-full"
           />
           <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
             Calorías totales del plan: <span className="text-white font-medium">{totalCal} kcal</span>
           </p>
         </div>
-        <button
-          onClick={save}
-          disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer"
-          style={{ background: '#F5611A', opacity: saving ? 0.7 : 1 }}
-        >
-          {saving ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : <Save style={{ width: 14, height: 14 }} />}
-          Guardar
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => { setGenCalorias(plan.calorias_objetivo); setShowGenerator(true) }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+            style={{ background: '#1E2130', color: '#9CA3AF', border: '1px solid #2a2d3e' }}
+          >
+            ✨ Generar
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer"
+            style={{ background: '#F5611A', opacity: saving ? 0.7 : 1 }}
+          >
+            {saving ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : <Save style={{ width: 14, height: 14 }} />}
+            Guardar
+          </button>
+        </div>
       </div>
 
       {/* Objetivos macro */}
@@ -704,6 +828,94 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
         className="hidden"
         onChange={handleFileSelected}
       />
+
+      {/* Generator modal */}
+      {showGenerator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setShowGenerator(false)}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5" style={{ background: '#161820', border: '1px solid #2a2d3e' }} onClick={e => e.stopPropagation()}>
+            <div>
+              <h2 className="text-lg font-bold text-white">✨ Generar plan</h2>
+              <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Se generará un plan base — revísalo y guarda si te convence</p>
+            </div>
+
+            {/* Objetivo */}
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Objetivo</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { key: 'definicion', label: 'Definición', desc: '40% P · 35% C · 25% G' },
+                  { key: 'volumen', label: 'Volumen', desc: '30% P · 50% C · 20% G' },
+                  { key: 'mantenimiento', label: 'Mantenimiento', desc: '30% P · 45% C · 25% G' },
+                  { key: 'perdida', label: 'Pérdida grasa', desc: '42% P · 28% C · 30% G' },
+                ] as { key: Objetivo; label: string; desc: string }[]).map(o => (
+                  <button
+                    key={o.key}
+                    onClick={() => setGenObjetivo(o.key)}
+                    className="p-3 rounded-xl text-left cursor-pointer transition-all"
+                    style={{
+                      background: genObjetivo === o.key ? 'rgba(245,97,26,0.15)' : '#1E2130',
+                      border: `1px solid ${genObjetivo === o.key ? '#F5611A' : '#2a2d3e'}`,
+                    }}
+                  >
+                    <div className="text-sm font-semibold" style={{ color: genObjetivo === o.key ? '#F5611A' : 'white' }}>{o.label}</div>
+                    <div className="text-xs mt-0.5" style={{ color: '#4B5563' }}>{o.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Calorías */}
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Calorías objetivo</p>
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}>
+                <input
+                  type="number"
+                  value={genCalorias}
+                  onChange={e => setGenCalorias(Number(e.target.value))}
+                  className="flex-1 bg-transparent text-white font-bold text-xl outline-none"
+                  min={800} max={6000} step={100}
+                />
+                <span className="text-sm" style={{ color: '#4B5563' }}>kcal/día</span>
+              </div>
+            </div>
+
+            {/* Número de comidas */}
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Número de comidas</p>
+              <div className="flex gap-2">
+                {[3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setGenComidas(n)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{
+                      background: genComidas === n ? 'rgba(245,97,26,0.15)' : '#1E2130',
+                      border: `1px solid ${genComidas === n ? '#F5611A' : '#2a2d3e'}`,
+                      color: genComidas === n ? '#F5611A' : '#9CA3AF',
+                    }}
+                  >{n} comidas</button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+                const generated = runGenerator(genObjetivo, genCalorias, genComidas, clientId, user.id)
+                if (plan?.id) generated.id = plan.id
+                setPlan(generated)
+                setShowGenerator(false)
+                onToast('Plan generado. Revísalo y pulsa Guardar.', 'info')
+              }}
+              className="w-full py-3 rounded-xl font-semibold text-white cursor-pointer"
+              style={{ background: '#F5611A' }}
+            >
+              Generar plan
+            </button>
+          </div>
+        </div>
+      )}
 
       {lightboxUrl && (
         <div
