@@ -53,6 +53,39 @@ async function buscarFotoUnsplash(comida: ComidaPlan): Promise<string | { error:
   return { error: 'Sin resultados' }
 }
 
+interface FoodResult {
+  nombre: string
+  cal100: number
+  prot100: number
+  carbs100: number
+  fat100: number
+}
+
+async function searchOpenFoodFacts(query: string): Promise<FoodResult[]> {
+  try {
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=10&fields=product_name,nutriments`
+    const res = await fetch(url)
+    if (!res.ok) return []
+    const data = await res.json()
+    const out: FoodResult[] = []
+    for (const p of data.products ?? []) {
+      const name = (p.product_name ?? '').trim()
+      if (!name) continue
+      const n = p.nutriments ?? {}
+      const cal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? Math.round(n['energy_100g'] / 4.184) : 0)
+      const prot = n['proteins_100g'] ?? 0
+      const carbs = n['carbohydrates_100g'] ?? 0
+      const fat = n['fat_100g'] ?? 0
+      if (cal === 0 && prot === 0) continue
+      out.push({ nombre: name, cal100: Math.round(cal), prot100: Math.round(prot), carbs100: Math.round(carbs), fat100: Math.round(fat) })
+      if (out.length >= 6) break
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
 interface NutricionTabProps {
   clientId: string
   onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
@@ -89,6 +122,30 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [addingTo, setAddingTo] = useState<string | null>(null)
   const [newFood, setNewFood] = useState({ nombre: '', gramos: '', calorias: '', proteinas: '', carbos: '', grasas: '' })
   const [searchingFoto, setSearchingFoto] = useState<string | null>(null)
+  const [foodQuery, setFoodQuery] = useState('')
+  const [foodResults, setFoodResults] = useState<FoodResult[]>([])
+  const [foodSearching, setFoodSearching] = useState(false)
+  const [showFoodDrop, setShowFoodDrop] = useState(false)
+  const [selectedFoodBase, setSelectedFoodBase] = useState<FoodResult | null>(null)
+
+  useEffect(() => {
+    setFoodQuery('')
+    setFoodResults([])
+    setShowFoodDrop(false)
+    setSelectedFoodBase(null)
+  }, [addingTo])
+
+  useEffect(() => {
+    if (!foodQuery || foodQuery.length < 2) { setFoodResults([]); setShowFoodDrop(false); return }
+    const timer = setTimeout(async () => {
+      setFoodSearching(true)
+      const results = await searchOpenFoodFacts(foodQuery)
+      setFoodResults(results)
+      setShowFoodDrop(results.length > 0)
+      setFoodSearching(false)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [foodQuery])
 
   useEffect(() => {
     if (demo) return
@@ -338,13 +395,63 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
                   {/* Add food form */}
                   {addingTo === comida.id ? (
                     <div className="rounded-xl p-3 space-y-2" style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}>
-                      <input
-                        placeholder="Nombre del alimento"
-                        value={newFood.nombre}
-                        onChange={e => setNewFood(p => ({ ...p, nombre: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-lg text-sm text-white outline-none"
-                        style={{ background: '#0D0E13', border: '1px solid #2a2d3e' }}
-                      />
+                      {/* Food name with autocomplete */}
+                      <div className="relative">
+                        <div className="relative">
+                          <input
+                            placeholder="Buscar alimento (ej: pollo, avena, arroz...)"
+                            value={newFood.nombre}
+                            onChange={e => {
+                              setNewFood(p => ({ ...p, nombre: e.target.value }))
+                              setFoodQuery(e.target.value)
+                              setSelectedFoodBase(null)
+                            }}
+                            onFocus={() => { if (foodResults.length > 0) setShowFoodDrop(true) }}
+                            className="w-full px-3 py-2 rounded-lg text-sm text-white outline-none pr-8"
+                            style={{ background: '#0D0E13', border: '1px solid #2a2d3e' }}
+                          />
+                          {foodSearching && (
+                            <Loader2 className="animate-spin absolute right-2.5 top-2.5" style={{ width: 14, height: 14, color: '#6B7280' }} />
+                          )}
+                          {selectedFoodBase && !foodSearching && (
+                            <span className="absolute right-2.5 top-2.5 text-xs" style={{ color: '#10B981' }}>✓</span>
+                          )}
+                        </div>
+                        {showFoodDrop && foodResults.length > 0 && (
+                          <div className="absolute z-30 w-full mt-1 rounded-xl overflow-hidden shadow-xl" style={{ background: '#0D0E13', border: '1px solid #2a2d3e' }}>
+                            {foodResults.map((f, i) => (
+                              <button
+                                key={i}
+                                onMouseDown={e => {
+                                  e.preventDefault()
+                                  const g = Number(newFood.gramos) || 100
+                                  const factor = g / 100
+                                  setNewFood(p => ({
+                                    ...p,
+                                    nombre: f.nombre,
+                                    calorias: String(Math.round(f.cal100 * factor)),
+                                    proteinas: String(Math.round(f.prot100 * factor)),
+                                    carbos: String(Math.round(f.carbs100 * factor)),
+                                    grasas: String(Math.round(f.fat100 * factor)),
+                                  }))
+                                  setSelectedFoodBase(f)
+                                  setShowFoodDrop(false)
+                                }}
+                                className="w-full px-3 py-2 text-left transition-colors"
+                                style={{ borderBottom: i < foodResults.length - 1 ? '1px solid #1a1d2e' : 'none' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#1E2130')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                              >
+                                <div className="text-sm text-white truncate">{f.nombre}</div>
+                                <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                                  {f.cal100} kcal · {f.prot100}g prot · {f.carbs100}g carbs · {f.fat100}g grasas
+                                  <span className="ml-1" style={{ color: '#4B5563' }}>(por 100g)</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <div className="grid grid-cols-5 gap-2">
                         {[
                           { key: 'gramos', label: 'g' },
@@ -358,12 +465,37 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
                             type="number"
                             placeholder={label}
                             value={newFood[key as keyof typeof newFood]}
-                            onChange={e => setNewFood(p => ({ ...p, [key]: e.target.value }))}
+                            onChange={e => {
+                              const val = e.target.value
+                              if (key === 'gramos' && selectedFoodBase) {
+                                const g = Number(val) || 0
+                                const factor = g / 100
+                                setNewFood(p => ({
+                                  ...p,
+                                  gramos: val,
+                                  calorias: String(Math.round(selectedFoodBase.cal100 * factor)),
+                                  proteinas: String(Math.round(selectedFoodBase.prot100 * factor)),
+                                  carbos: String(Math.round(selectedFoodBase.carbs100 * factor)),
+                                  grasas: String(Math.round(selectedFoodBase.fat100 * factor)),
+                                }))
+                              } else {
+                                setNewFood(p => ({ ...p, [key]: val }))
+                              }
+                            }}
                             className="px-2 py-1.5 rounded-lg text-xs text-white outline-none text-center"
-                            style={{ background: '#0D0E13', border: '1px solid #2a2d3e' }}
+                            style={{
+                              background: '#0D0E13',
+                              border: `1px solid ${key !== 'gramos' && selectedFoodBase ? '#1E3A2F' : '#2a2d3e'}`,
+                              color: key !== 'gramos' && selectedFoodBase ? '#10B981' : 'white',
+                            }}
                           />
                         ))}
                       </div>
+                      {selectedFoodBase && (
+                        <p className="text-xs" style={{ color: '#4B5563' }}>
+                          Macros calculados automáticamente. Cambia los gramos para recalcular.
+                        </p>
+                      )}
                       <div className="flex gap-2">
                         <button onClick={() => addAlimento(comida.id)} className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white cursor-pointer" style={{ background: '#F5611A' }}>
                           Añadir
