@@ -33,10 +33,11 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
   const [loadingClient, setLoadingClient] = useState(false)
   const [pesoObj, setPesoObj] = useState('')
   const [savingObj, setSavingObj] = useState(false)
-  const [perfil, setPerfil] = useState<PerfilNutricional>({ alergias: [], aversiones: [], tipoDieta: 'omnivoro', presupuesto: 'moderado', habilidadCulinaria: 'intermedio' })
+  const [perfil, setPerfil] = useState<PerfilNutricional>({ alergias: [], aversiones: [], preferencias: [], tipoDieta: 'omnivoro', presupuesto: 'moderado', habilidadCulinaria: 'intermedio' })
   const [savingPerfil, setSavingPerfil] = useState(false)
   const [alergiasInput, setAlergiasInput] = useState('')
   const [aversionesInput, setAversionesInput] = useState('')
+  const [preferenciasInput, setPreferenciasInput] = useState('')
 
   const isReal = isRealId(clientId) && !isDemoMode()
 
@@ -345,6 +346,48 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
                       const tag = aversionesInput.trim()
                       if (tag && !perfil.aversiones.includes(tag)) setPerfil(p => ({ ...p, aversiones: [...p.aversiones, tag] }))
                       setAversionesInput('')
+                    }}
+                    className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                    style={{ background: '#1E2130', color: '#F5611A', border: '1px solid #2a2d3e' }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              </div>
+
+              {/* Preferencias */}
+              <div>
+                <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>Preferencias (alimentos/comidas que le gustan)</label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {(perfil.preferencias ?? []).map(a => (
+                    <span key={a} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs" style={{ background: 'rgba(16,185,129,0.12)', color: '#10B981' }}>
+                      {a}
+                      <button onClick={() => setPerfil(p => ({ ...p, preferencias: (p.preferencias ?? []).filter(x => x !== a) }))} className="cursor-pointer ml-0.5 opacity-70 hover:opacity-100">×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ej: arroz, pollo, pasta, huevos…"
+                    value={preferenciasInput}
+                    onChange={e => setPreferenciasInput(e.target.value)}
+                    onKeyDown={e => {
+                      if ((e.key === 'Enter' || e.key === ',') && preferenciasInput.trim()) {
+                        e.preventDefault()
+                        const tag = preferenciasInput.trim().replace(/,$/, '')
+                        if (tag && !(perfil.preferencias ?? []).includes(tag)) setPerfil(p => ({ ...p, preferencias: [...(p.preferencias ?? []), tag] }))
+                        setPreferenciasInput('')
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-xl text-xs text-white outline-none"
+                    style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
+                  />
+                  <button
+                    onClick={() => {
+                      const tag = preferenciasInput.trim()
+                      if (tag && !(perfil.preferencias ?? []).includes(tag)) setPerfil(p => ({ ...p, preferencias: [...(p.preferencias ?? []), tag] }))
+                      setPreferenciasInput('')
                     }}
                     className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
                     style={{ background: '#1E2130', color: '#F5611A', border: '1px solid #2a2d3e' }}

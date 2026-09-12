@@ -43,6 +43,7 @@ export default async function handler(req: Request): Promise<Response> {
       if (perfilNutricional.habilidadCulinaria) perfilLines.push(`- Habilidad culinaria: ${habilidadLabels[perfilNutricional.habilidadCulinaria] ?? perfilNutricional.habilidadCulinaria}`)
       if (perfilNutricional.alergias?.length) perfilLines.push(`- Alergias/intolerancias (EXCLUIR): ${perfilNutricional.alergias.join(', ')}`)
       if (perfilNutricional.aversiones?.length) perfilLines.push(`- Aversiones (evitar o sustituir): ${perfilNutricional.aversiones.join(', ')}`)
+      if (perfilNutricional.preferencias?.length) perfilLines.push(`- Preferencias (incluir siempre que sea posible): ${perfilNutricional.preferencias.join(', ')}`)
     }
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {

@@ -493,6 +493,7 @@ export async function completeClientProfile(password: string) {
 export interface PerfilNutricional {
   alergias: string[]
   aversiones: string[]
+  preferencias: string[]
   tipoDieta: string
   presupuesto: string
   habilidadCulinaria: string
