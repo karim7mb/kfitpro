@@ -61,11 +61,96 @@ interface FoodResult {
   fat100: number
 }
 
-async function searchOpenFoodFacts(query: string): Promise<FoodResult[] | { error: string }> {
+// Curated Spanish fitness food database (macros per 100g)
+const ALIMENTOS_DB: FoodResult[] = [
+  // Proteínas animales
+  { nombre: 'Pechuga de pollo', cal100: 110, prot100: 23, carbs100: 0, fat100: 2 },
+  { nombre: 'Muslo de pollo', cal100: 177, prot100: 18, carbs100: 0, fat100: 12 },
+  { nombre: 'Pavo (pechuga)', cal100: 107, prot100: 24, carbs100: 0, fat100: 1 },
+  { nombre: 'Ternera magra', cal100: 150, prot100: 26, carbs100: 0, fat100: 5 },
+  { nombre: 'Solomillo de ternera', cal100: 143, prot100: 22, carbs100: 0, fat100: 6 },
+  { nombre: 'Cerdo lomo', cal100: 182, prot100: 22, carbs100: 0, fat100: 10 },
+  { nombre: 'Salmón', cal100: 208, prot100: 20, carbs100: 0, fat100: 13 },
+  { nombre: 'Atún en agua', cal100: 103, prot100: 23, carbs100: 0, fat100: 1 },
+  { nombre: 'Atún fresco', cal100: 144, prot100: 24, carbs100: 0, fat100: 5 },
+  { nombre: 'Merluza', cal100: 86, prot100: 18, carbs100: 0, fat100: 1 },
+  { nombre: 'Bacalao', cal100: 82, prot100: 18, carbs100: 0, fat100: 1 },
+  { nombre: 'Gambas', cal100: 85, prot100: 18, carbs100: 1, fat100: 1 },
+  { nombre: 'Sardinas', cal100: 208, prot100: 25, carbs100: 0, fat100: 12 },
+  { nombre: 'Huevo entero', cal100: 155, prot100: 13, carbs100: 1, fat100: 11 },
+  { nombre: 'Claras de huevo', cal100: 52, prot100: 11, carbs100: 1, fat100: 0 },
+  // Proteínas vegetales / lácteos
+  { nombre: 'Proteína whey', cal100: 380, prot100: 75, carbs100: 8, fat100: 5 },
+  { nombre: 'Yogur griego 0%', cal100: 57, prot100: 10, carbs100: 4, fat100: 0 },
+  { nombre: 'Yogur griego natural', cal100: 97, prot100: 9, carbs100: 4, fat100: 5 },
+  { nombre: 'Queso cottage', cal100: 98, prot100: 11, carbs100: 3, fat100: 4 },
+  { nombre: 'Requesón', cal100: 74, prot100: 8, carbs100: 4, fat100: 3 },
+  { nombre: 'Leche desnatada', cal100: 35, prot100: 4, carbs100: 5, fat100: 0 },
+  { nombre: 'Leche semidesnatada', cal100: 47, prot100: 3, carbs100: 5, fat100: 2 },
+  { nombre: 'Tofu', cal100: 76, prot100: 8, carbs100: 2, fat100: 4 },
+  { nombre: 'Edamame', cal100: 122, prot100: 11, carbs100: 10, fat100: 5 },
+  { nombre: 'Legumbres cocidas (lentejas)', cal100: 116, prot100: 9, carbs100: 20, fat100: 1 },
+  { nombre: 'Legumbres cocidas (garbanzos)', cal100: 164, prot100: 9, carbs100: 27, fat100: 3 },
+  // Carbohidratos
+  { nombre: 'Arroz blanco cocido', cal100: 130, prot100: 3, carbs100: 28, fat100: 0 },
+  { nombre: 'Arroz integral cocido', cal100: 123, prot100: 3, carbs100: 26, fat100: 1 },
+  { nombre: 'Avena en copos', cal100: 370, prot100: 13, carbs100: 60, fat100: 7 },
+  { nombre: 'Pasta cocida', cal100: 131, prot100: 5, carbs100: 25, fat100: 1 },
+  { nombre: 'Pasta integral cocida', cal100: 124, prot100: 5, carbs100: 23, fat100: 1 },
+  { nombre: 'Patata cocida', cal100: 87, prot100: 2, carbs100: 20, fat100: 0 },
+  { nombre: 'Patata dulce / Boniato', cal100: 86, prot100: 2, carbs100: 20, fat100: 0 },
+  { nombre: 'Pan integral', cal100: 247, prot100: 9, carbs100: 46, fat100: 3 },
+  { nombre: 'Pan blanco', cal100: 265, prot100: 8, carbs100: 52, fat100: 2 },
+  { nombre: 'Tortita de arroz', cal100: 387, prot100: 8, carbs100: 82, fat100: 3 },
+  { nombre: 'Quinoa cocida', cal100: 120, prot100: 4, carbs100: 22, fat100: 2 },
+  { nombre: 'Couscous cocido', cal100: 112, prot100: 4, carbs100: 23, fat100: 0 },
+  // Verduras
+  { nombre: 'Brócoli', cal100: 34, prot100: 3, carbs100: 7, fat100: 0 },
+  { nombre: 'Espinacas', cal100: 23, prot100: 3, carbs100: 4, fat100: 0 },
+  { nombre: 'Lechuga', cal100: 15, prot100: 1, carbs100: 2, fat100: 0 },
+  { nombre: 'Tomate', cal100: 18, prot100: 1, carbs100: 4, fat100: 0 },
+  { nombre: 'Pepino', cal100: 15, prot100: 1, carbs100: 4, fat100: 0 },
+  { nombre: 'Pimiento rojo', cal100: 31, prot100: 1, carbs100: 6, fat100: 0 },
+  { nombre: 'Zanahoria', cal100: 41, prot100: 1, carbs100: 10, fat100: 0 },
+  { nombre: 'Calabacín', cal100: 17, prot100: 1, carbs100: 3, fat100: 0 },
+  { nombre: 'Champiñones', cal100: 22, prot100: 3, carbs100: 3, fat100: 0 },
+  { nombre: 'Cebolla', cal100: 40, prot100: 1, carbs100: 9, fat100: 0 },
+  { nombre: 'Espárragos', cal100: 20, prot100: 2, carbs100: 4, fat100: 0 },
+  { nombre: 'Col (repollo)', cal100: 25, prot100: 1, carbs100: 6, fat100: 0 },
+  { nombre: 'Ensalada mixta', cal100: 15, prot100: 1, carbs100: 2, fat100: 0 },
+  { nombre: 'Verduras al vapor', cal100: 30, prot100: 2, carbs100: 6, fat100: 0 },
+  // Frutas
+  { nombre: 'Plátano', cal100: 89, prot100: 1, carbs100: 23, fat100: 0 },
+  { nombre: 'Manzana', cal100: 52, prot100: 0, carbs100: 14, fat100: 0 },
+  { nombre: 'Naranja', cal100: 47, prot100: 1, carbs100: 12, fat100: 0 },
+  { nombre: 'Fresas', cal100: 32, prot100: 1, carbs100: 8, fat100: 0 },
+  { nombre: 'Arándanos', cal100: 57, prot100: 1, carbs100: 14, fat100: 0 },
+  { nombre: 'Kiwi', cal100: 61, prot100: 1, carbs100: 15, fat100: 1 },
+  { nombre: 'Sandía', cal100: 30, prot100: 1, carbs100: 8, fat100: 0 },
+  { nombre: 'Melocotón', cal100: 39, prot100: 1, carbs100: 10, fat100: 0 },
+  { nombre: 'Pera', cal100: 57, prot100: 0, carbs100: 15, fat100: 0 },
+  { nombre: 'Uvas', cal100: 69, prot100: 1, carbs100: 18, fat100: 0 },
+  // Grasas saludables
+  { nombre: 'Aguacate', cal100: 160, prot100: 2, carbs100: 9, fat100: 15 },
+  { nombre: 'Aceite de oliva', cal100: 884, prot100: 0, carbs100: 0, fat100: 100 },
+  { nombre: 'Nueces', cal100: 654, prot100: 15, carbs100: 14, fat100: 65 },
+  { nombre: 'Almendras', cal100: 579, prot100: 21, carbs100: 22, fat100: 50 },
+  { nombre: 'Mantequilla de cacahuete', cal100: 588, prot100: 25, carbs100: 20, fat100: 50 },
+  { nombre: 'Semillas de chía', cal100: 486, prot100: 17, carbs100: 42, fat100: 31 },
+  { nombre: 'Aceite de coco', cal100: 862, prot100: 0, carbs100: 0, fat100: 100 },
+]
+
+function searchLocalFoods(query: string): FoodResult[] {
+  const q = query.toLowerCase().trim()
+  if (q.length < 2) return []
+  return ALIMENTOS_DB.filter(f => f.nombre.toLowerCase().includes(q)).slice(0, 6)
+}
+
+async function searchOpenFoodFacts(query: string): Promise<FoodResult[]> {
   try {
-    const url = `https://es.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&fields=product_name%2Cnutriments&page_size=10&sort_by=unique_scans_n&lc=es`
+    const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&fields=product_name%2Cnutriments&page_size=10&sort_by=unique_scans_n&lc=es&cc=es`
     const res = await fetch(url)
-    if (!res.ok) return { error: `HTTP ${res.status}` }
+    if (!res.ok) return []
     const data = await res.json()
     const out: FoodResult[] = []
     for (const p of data.products ?? []) {
@@ -78,10 +163,24 @@ async function searchOpenFoodFacts(query: string): Promise<FoodResult[] | { erro
       const fat = n['fat_100g'] ?? 0
       if (cal === 0 && prot === 0) continue
       out.push({ nombre: name, cal100: Math.round(cal), prot100: Math.round(prot), carbs100: Math.round(carbs), fat100: Math.round(fat) })
-      if (out.length >= 6) break
+      if (out.length >= 4) break
     }
     return out
+  } catch {
+    return []
+  }
+}
+
+async function searchFoods(query: string): Promise<FoodResult[] | { error: string }> {
+  const local = searchLocalFoods(query)
+  if (local.length >= 4) return local
+  try {
+    const off = await searchOpenFoodFacts(query)
+    const localNames = new Set(local.map(f => f.nombre.toLowerCase()))
+    const extra = off.filter(f => !localNames.has(f.nombre.toLowerCase()))
+    return [...local, ...extra].slice(0, 6)
   } catch (e) {
+    if (local.length > 0) return local
     return { error: e instanceof Error ? e.message : 'Error de red' }
   }
 }
@@ -142,7 +241,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
     const timer = setTimeout(async () => {
       setFoodSearching(true)
       setFoodError(null)
-      const res = await searchOpenFoodFacts(foodQuery)
+      const res = await searchFoods(foodQuery)
       if (Array.isArray(res)) {
         setFoodResults(res)
         setShowFoodDrop(true)
