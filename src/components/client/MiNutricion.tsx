@@ -91,17 +91,22 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
     </div>
   )
 
-  const totalCal = plan.comidas.reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.calorias, 0), 0)
-  const totalProt = plan.comidas.reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.proteinas, 0), 0)
-  const totalCarbs = plan.comidas.reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.carbos, 0), 0)
-  const totalGrasas = plan.comidas.reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.grasas, 0), 0)
+  const ahoraStr = new Date().toTimeString().slice(0, 5) // "HH:MM"
 
-  const pctCal = Math.min((totalCal / plan.calorias_objetivo) * 100, 100)
+  const comidaPasada = (hora: string) => hora <= ahoraStr
+  const proximaComida = plan.comidas.find(c => c.hora > ahoraStr)
+
+  const consumidoCal = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.calorias, 0), 0)
+  const consumidoProt = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.proteinas, 0), 0)
+  const consumidoCarbs = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.carbos, 0), 0)
+  const consumidoGrasas = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.grasas, 0), 0)
+
+  const pctCal = Math.min((consumidoCal / plan.calorias_objetivo) * 100, 100)
 
   const macros = [
-    { label: 'Proteína', val: totalProt, obj: plan.proteinas_g, color: '#8B5CF6' },
-    { label: 'Carbohidratos', val: totalCarbs, obj: plan.carbos_g, color: '#3B82F6' },
-    { label: 'Grasas', val: totalGrasas, obj: plan.grasas_g, color: '#F59E0B' },
+    { label: 'Proteína', val: consumidoProt, obj: plan.proteinas_g, color: '#8B5CF6' },
+    { label: 'Carbohidratos', val: consumidoCarbs, obj: plan.carbos_g, color: '#3B82F6' },
+    { label: 'Grasas', val: consumidoGrasas, obj: plan.grasas_g, color: '#F59E0B' },
   ]
 
   return (
@@ -113,9 +118,9 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
 
       {/* Calorías */}
       <div className="mx-4 rounded-2xl p-5 mb-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
-        <div className="text-sm mb-1" style={{ color: '#6B7280' }}>Calorías objetivo</div>
+        <div className="text-sm mb-1" style={{ color: '#6B7280' }}>Calorías consumidas hoy</div>
         <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-4xl font-bold text-white">{totalCal}</span>
+          <span className="text-4xl font-bold text-white">{consumidoCal}</span>
           <span className="text-sm" style={{ color: '#6B7280' }}>/ {plan.calorias_objetivo} kcal</span>
         </div>
         <div className="h-3 rounded-full overflow-hidden mb-1" style={{ background: '#1E2130' }}>
@@ -125,7 +130,7 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
           />
         </div>
         <div className="text-xs text-right" style={{ color: '#6B7280' }}>
-          {plan.calorias_objetivo - totalCal > 0 ? `${plan.calorias_objetivo - totalCal} kcal restantes` : 'Objetivo alcanzado'}
+          {plan.calorias_objetivo - consumidoCal > 0 ? `${plan.calorias_objetivo - consumidoCal} kcal restantes` : 'Objetivo alcanzado'}
         </div>
       </div>
 
@@ -157,9 +162,15 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
           const cal = comida.alimentos.reduce((s, a) => s + a.calorias, 0)
           const prot = comida.alimentos.reduce((s, a) => s + a.proteinas, 0)
           const isOpen = expanded[comida.id] ?? false
+          const pasada = comidaPasada(comida.hora)
+          const esProxima = proximaComida?.id === comida.id
 
           return (
-            <div key={comida.id} className="rounded-2xl overflow-hidden" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+            <div key={comida.id} className="rounded-2xl overflow-hidden" style={{
+              background: '#161820',
+              border: `1px solid ${esProxima ? '#F5611A55' : pasada ? '#10B98133' : '#1E2130'}`,
+              opacity: !pasada && !esProxima ? 0.6 : 1,
+            }}>
               <button
                 onClick={() => setExpanded(p => ({ ...p, [comida.id]: !isOpen }))}
                 className="w-full flex items-center gap-3 px-5 py-4 cursor-pointer text-left"
@@ -168,6 +179,8 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white text-sm">{comida.nombre}</span>
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#1E2130', color: '#6B7280' }}>{comida.hora}</span>
+                    {pasada && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>✓</span>}
+                    {esProxima && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(245,97,26,0.15)', color: '#F5611A' }}>Próxima</span>}
                   </div>
                   <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
                     {comida.alimentos.length} alimentos · {prot}g prot
