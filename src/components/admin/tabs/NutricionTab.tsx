@@ -4,16 +4,25 @@ import { supabase, fetchPlanNutricional, upsertPlanNutricional, type PlanNutrici
 
 const UNSPLASH_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY as string | undefined
 
+const MEAL_EN: Record<string, string> = {
+  desayuno: 'breakfast', almuerzo: 'lunch', comida: 'lunch',
+  merienda: 'healthy snack', cena: 'dinner', preentrenamiento: 'pre workout meal',
+  postentrenamiento: 'post workout meal',
+}
+
 async function buscarFotoUnsplash(comida: ComidaPlan): Promise<string | null> {
   if (!UNSPLASH_KEY) return null
-  const ingredientes = comida.alimentos.slice(0, 3).map(a => a.nombre).join(' ')
-  const query = encodeURIComponent(`${comida.nombre} ${ingredientes} healthy food meal`)
-  const res = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=5&orientation=landscape&client_id=${UNSPLASH_KEY}`)
+  const nombreEn = MEAL_EN[comida.nombre.toLowerCase().trim()] ?? comida.nombre
+  const mainIngredient = comida.alimentos[0]?.nombre ?? ''
+  const query = encodeURIComponent(`${nombreEn} ${mainIngredient} food plate`)
+  const res = await fetch(
+    `https://api.unsplash.com/search/photos?query=${query}&per_page=6&orientation=landscape&client_id=${UNSPLASH_KEY}`
+  )
   if (!res.ok) return null
   const data = await res.json()
   const results: { urls: { regular: string } }[] = data.results ?? []
   if (results.length === 0) return null
-  const idx = Math.floor(Math.random() * Math.min(results.length, 3))
+  const idx = Math.floor(Math.random() * Math.min(results.length, 4))
   return results[idx].urls.regular
 }
 
