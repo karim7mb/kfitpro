@@ -383,7 +383,7 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
                   <XAxis dataKey="mes" tick={{ fill: '#4B5563', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis
                     tick={{ fill: '#4B5563', fontSize: 11 }} axisLine={false} tickLine={false}
-                    domain={([min, max]: [number, number]) => [Math.floor(min - 0.5), Math.ceil(max + 0.5)] as [number, number]}
+                    domain={([min, max]: readonly [number, number]) => [Math.floor(min - 0.5), Math.ceil(max + 0.5)] as [number, number]}
                   />
                   <Tooltip
                     contentStyle={{ background: '#1E2130', border: '1px solid #2a2d3e', borderRadius: 8, fontSize: 12 }}
