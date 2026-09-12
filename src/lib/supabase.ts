@@ -161,7 +161,7 @@ export async function fetchRegistrosPeso(clienteId: string): Promise<PesoEntry[]
   if (error || !data || data.length === 0) return []
 
   return data.map(r => ({
-    mes: new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES', { month: 'short' }),
+    mes: new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
     peso: Number(r.peso_kg),
     fecha: r.fecha,
   }))
@@ -312,6 +312,113 @@ export async function upsertPlanNutricional(plan: PlanNutricional): Promise<void
       .insert({ cliente_id: plan.cliente_id, entrenador_id: plan.entrenador_id, nombre: plan.nombre, calorias_objetivo: plan.calorias_objetivo, proteinas_g: plan.proteinas_g, carbos_g: plan.carbos_g, grasas_g: plan.grasas_g, comidas: plan.comidas, activo: true })
     if (error) throw error
   }
+}
+
+export interface MedidaCorporal {
+  id?: string
+  fecha: string
+  cintura?: number
+  cadera?: number
+  pecho?: number
+  brazo?: number
+  muslo?: number
+}
+
+export interface RegistroRendimiento {
+  id?: string
+  fecha: string
+  ejercicio: string
+  peso_kg?: number
+  reps?: number
+  notas?: string
+}
+
+export async function fetchMedidasCorporales(clienteId: string): Promise<MedidaCorporal[]> {
+  const { data, error } = await supabase
+    .from('medidas_corporales')
+    .select('id, fecha, cintura, cadera, pecho, brazo, muslo')
+    .eq('cliente_id', clienteId)
+    .order('fecha', { ascending: true })
+    .limit(20)
+  if (error || !data) return []
+  return data.map(r => ({
+    id: r.id,
+    fecha: r.fecha,
+    cintura: r.cintura != null ? Number(r.cintura) : undefined,
+    cadera: r.cadera != null ? Number(r.cadera) : undefined,
+    pecho: r.pecho != null ? Number(r.pecho) : undefined,
+    brazo: r.brazo != null ? Number(r.brazo) : undefined,
+    muslo: r.muslo != null ? Number(r.muslo) : undefined,
+  }))
+}
+
+export async function addMedidaCorporal(clienteId: string, medida: Omit<MedidaCorporal, 'id'>): Promise<void> {
+  const obj: Record<string, unknown> = { cliente_id: clienteId, fecha: medida.fecha }
+  if (medida.cintura != null) obj.cintura = medida.cintura
+  if (medida.cadera != null) obj.cadera = medida.cadera
+  if (medida.pecho != null) obj.pecho = medida.pecho
+  if (medida.brazo != null) obj.brazo = medida.brazo
+  if (medida.muslo != null) obj.muslo = medida.muslo
+  const { error } = await supabase.from('medidas_corporales').insert(obj)
+  if (error) throw error
+}
+
+export async function fetchRegistrosRendimiento(clienteId: string): Promise<RegistroRendimiento[]> {
+  const { data, error } = await supabase
+    .from('registros_rendimiento')
+    .select('id, fecha, ejercicio, peso_kg, reps, notas')
+    .eq('cliente_id', clienteId)
+    .order('fecha', { ascending: true })
+    .limit(100)
+  if (error || !data) return []
+  return data.map(r => ({
+    id: r.id,
+    fecha: r.fecha,
+    ejercicio: r.ejercicio,
+    peso_kg: r.peso_kg != null ? Number(r.peso_kg) : undefined,
+    reps: r.reps ?? undefined,
+    notas: r.notas ?? undefined,
+  }))
+}
+
+export async function addRegistroRendimiento(clienteId: string, registro: Omit<RegistroRendimiento, 'id'>): Promise<void> {
+  const { error } = await supabase.from('registros_rendimiento').insert({
+    cliente_id: clienteId,
+    fecha: registro.fecha,
+    ejercicio: registro.ejercicio,
+    peso_kg: registro.peso_kg,
+    reps: registro.reps,
+    notas: registro.notas,
+  })
+  if (error) throw error
+}
+
+export async function fetchFotosProgreso(clienteId: string): Promise<{ id: string; fecha: string; url: string }[]> {
+  const { data, error } = await supabase
+    .from('fotos_progreso')
+    .select('id, fecha, url')
+    .eq('cliente_id', clienteId)
+    .order('fecha', { ascending: false })
+    .limit(20)
+  if (error || !data) return []
+  return data
+}
+
+export async function uploadFotoProgreso(clienteId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${clienteId}/${Date.now()}.${ext}`
+  const { error: uploadError } = await supabase.storage
+    .from('progress-photos')
+    .upload(path, file, { contentType: file.type })
+  if (uploadError) throw uploadError
+  const { data } = supabase.storage.from('progress-photos').getPublicUrl(path)
+  const url = data.publicUrl
+  const fecha = new Date().toISOString().split('T')[0]
+  const { error: dbError } = await supabase
+    .from('fotos_progreso')
+    .insert({ cliente_id: clienteId, url, fecha, tipo: 'general' })
+  if (dbError) throw dbError
+  return url
 }
 
 export async function changePassword(newPassword: string): Promise<void> {

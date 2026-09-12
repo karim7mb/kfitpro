@@ -207,6 +207,23 @@ export const demoEjercicios = [
   },
 ]
 
+export const demoMedidas = [
+  { fecha: '2026-07-01', cintura: 92, cadera: 104, pecho: 98, brazo: 37, muslo: 62 },
+  { fecha: '2026-08-01', cintura: 89, cadera: 101, pecho: 96, brazo: 37.5, muslo: 60 },
+  { fecha: '2026-09-01', cintura: 86, cadera: 98, pecho: 94, brazo: 38, muslo: 58 },
+]
+
+export const demoRendimiento = [
+  { fecha: '2026-07-01', ejercicio: 'Sentadilla', peso_kg: 80, reps: 5 },
+  { fecha: '2026-08-01', ejercicio: 'Sentadilla', peso_kg: 87.5, reps: 5 },
+  { fecha: '2026-09-01', ejercicio: 'Sentadilla', peso_kg: 95, reps: 5 },
+  { fecha: '2026-07-01', ejercicio: 'Press banca', peso_kg: 65, reps: 8 },
+  { fecha: '2026-08-01', ejercicio: 'Press banca', peso_kg: 72.5, reps: 8 },
+  { fecha: '2026-09-01', ejercicio: 'Press banca', peso_kg: 80, reps: 8 },
+  { fecha: '2026-07-15', ejercicio: 'Peso muerto', peso_kg: 110, reps: 5 },
+  { fecha: '2026-09-01', ejercicio: 'Peso muerto', peso_kg: 125, reps: 5 },
+]
+
 export const grupoColors: Record<string, string> = {
   Piernas: '#3B82F6',
   Pecho: '#EF4444',
