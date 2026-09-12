@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Dumbbell, Weight, Apple, MessageSquare, FileText, Loader2 } from 'lucide-react'
 import { demoClients, demoRutina, demoPeso, demoNutricion } from '../../data/demo'
-import { fetchClienteData, updatePesoObjetivo, fetchPerfilNutricional, updatePerfilNutricional, isDemoMode, type ClienteDisplay, type PerfilNutricional } from '../../lib/supabase'
+import {
+  fetchClienteData, updatePesoObjetivo,
+  fetchPerfilNutricional, updatePerfilNutricional,
+  fetchPerfilEntrenamiento, updatePerfilEntrenamiento,
+  isDemoMode, type ClienteDisplay, type PerfilNutricional, type PerfilEntrenamiento,
+} from '../../lib/supabase'
 import RutinaTab from './tabs/RutinaTab'
 import PesoTab from './tabs/PesoTab'
 import NutricionTab from './tabs/NutricionTab'
@@ -27,17 +32,75 @@ const tabs: { id: Tab; label: string; icon: React.ComponentType<{ style?: React.
 
 const isRealId = (id: string) => !id.startsWith('client-') && !id.startsWith('admin-')
 
+const EMPTY_NUTRI: PerfilNutricional = { alergias: [], aversiones: [], preferencias: [], supermercados: [], tipoDieta: 'omnivoro', presupuesto: 'moderado', habilidadCulinaria: 'intermedio', tiempoCocina: '30min' }
+const EMPTY_ENTR: PerfilEntrenamiento = { altura: 170, diasEntreno: 3, tiempoEntrenoSemana: '3-4h', tipoTrabajo: 'sentado', nivel: 'principiante', tiempoIntentando: '1-3meses', entrenadorPrevio: false }
+
+function TagInput({ tags, onAdd, onRemove, placeholder, color }: { tags: string[]; onAdd: (t: string) => void; onRemove: (t: string) => void; placeholder: string; color: string }) {
+  const [input, setInput] = useState('')
+  const commit = () => {
+    const t = input.trim().replace(/,$/, '')
+    if (t && !tags.includes(t)) onAdd(t)
+    setInput('')
+  }
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {tags.map(t => (
+          <span key={t} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs" style={{ background: color + '20', color }}>
+            {t}
+            <button onClick={() => onRemove(t)} className="cursor-pointer ml-0.5 opacity-70 hover:opacity-100">×</button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder={placeholder}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); commit() } }}
+          className="flex-1 px-3 py-2 rounded-xl text-xs text-white outline-none"
+          style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
+        />
+        <button onClick={commit} className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer" style={{ background: '#1E2130', color: '#F5611A', border: '1px solid #2a2d3e' }}>
+          Añadir
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function BtnGroup<T extends string>({ options, value, onChange }: { options: { v: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(o => (
+        <button
+          key={o.v}
+          onClick={() => onChange(o.v)}
+          className="flex-1 py-2 px-3 rounded-lg text-xs font-medium cursor-pointer transition-all whitespace-nowrap"
+          style={{ background: value === o.v ? '#F5611A' : '#1E2130', color: value === o.v ? 'white' : '#9CA3AF', border: `1px solid ${value === o.v ? '#F5611A' : '#2a2d3e'}` }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>{children}</label>
+}
+
 export default function ClientProfile({ clientId, onBack, onToast }: ClientProfileProps) {
   const [activeTab, setActiveTab] = useState<Tab>('datos')
   const [realClient, setRealClient] = useState<ClienteDisplay | null>(null)
   const [loadingClient, setLoadingClient] = useState(false)
   const [pesoObj, setPesoObj] = useState('')
   const [savingObj, setSavingObj] = useState(false)
-  const [perfil, setPerfil] = useState<PerfilNutricional>({ alergias: [], aversiones: [], preferencias: [], tipoDieta: 'omnivoro', presupuesto: 'moderado', habilidadCulinaria: 'intermedio' })
-  const [savingPerfil, setSavingPerfil] = useState(false)
-  const [alergiasInput, setAlergiasInput] = useState('')
-  const [aversionesInput, setAversionesInput] = useState('')
-  const [preferenciasInput, setPreferenciasInput] = useState('')
+  const [nutri, setNutri] = useState<PerfilNutricional>(EMPTY_NUTRI)
+  const [savingNutri, setSavingNutri] = useState(false)
+  const [entr, setEntr] = useState<PerfilEntrenamiento>(EMPTY_ENTR)
+  const [savingEntr, setSavingEntr] = useState(false)
 
   const isReal = isRealId(clientId) && !isDemoMode()
 
@@ -49,9 +112,8 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
       if (data?.pesoObjetivo) setPesoObj(String(data.pesoObjetivo))
       setLoadingClient(false)
     })
-    fetchPerfilNutricional(clientId).then(p => {
-      if (p) setPerfil(p)
-    })
+    fetchPerfilNutricional(clientId).then(p => { if (p) setNutri({ ...EMPTY_NUTRI, ...p }) })
+    fetchPerfilEntrenamiento(clientId).then(p => { if (p) setEntr({ ...EMPTY_ENTR, ...p }) })
   }, [clientId, isReal])
 
   const demoClient = demoClients.find(c => c.id === clientId) || demoClients[0]
@@ -82,10 +144,7 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
           Volver a Clientes
         </button>
         <div className="flex items-center gap-4">
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white"
-            style={{ background: client.color }}
-          >
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white" style={{ background: client.color }}>
             {client.iniciales}
           </div>
           <div>
@@ -95,13 +154,7 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
               {client.email && <span className="ml-2">· {client.email}</span>}
             </p>
           </div>
-          <span
-            className="ml-auto text-sm px-3 py-1 rounded-full font-medium"
-            style={{
-              background: client.activo ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.15)',
-              color: client.activo ? '#10B981' : '#6B7280',
-            }}
-          >
+          <span className="ml-auto text-sm px-3 py-1 rounded-full font-medium" style={{ background: client.activo ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.15)', color: client.activo ? '#10B981' : '#6B7280' }}>
             {client.activo ? 'Activo' : 'Inactivo'}
           </span>
         </div>
@@ -114,12 +167,7 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
             key={id}
             onClick={() => setActiveTab(id)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all cursor-pointer"
-            style={{
-              background: activeTab === id ? '#F5611A' : '#161820',
-              color: activeTab === id ? 'white' : '#6B7280',
-              border: '1px solid',
-              borderColor: activeTab === id ? '#F5611A' : '#1E2130',
-            }}
+            style={{ background: activeTab === id ? '#F5611A' : '#161820', color: activeTab === id ? 'white' : '#6B7280', border: '1px solid', borderColor: activeTab === id ? '#F5611A' : '#1E2130' }}
           >
             <Icon style={{ width: 14, height: 14 }} />
             {label}
@@ -130,6 +178,8 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
       {/* Tab Content */}
       {activeTab === 'datos' && (
         <div className="space-y-4">
+
+          {/* Información Personal */}
           <div className="rounded-xl p-6" style={{ background: '#161820', border: '1px solid #1E2130' }}>
             <h3 className="font-semibold text-white mb-4">Información Personal</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -148,6 +198,8 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
               ))}
             </div>
           </div>
+
+          {/* Peso objetivo */}
           {isReal && (
             <div className="rounded-xl p-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
               <h3 className="font-semibold text-white mb-3">Peso objetivo</h3>
@@ -167,12 +219,9 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
                     const val = parseFloat(pesoObj)
                     if (!val) return
                     setSavingObj(true)
-                    try {
-                      await updatePesoObjetivo(clientId, val)
-                      onToast('Peso objetivo guardado', 'success')
-                    } catch {
-                      onToast('Error al guardar', 'error')
-                    } finally { setSavingObj(false) }
+                    try { await updatePesoObjetivo(clientId, val); onToast('Peso objetivo guardado', 'success') }
+                    catch { onToast('Error al guardar', 'error') }
+                    finally { setSavingObj(false) }
                   }}
                   disabled={savingObj || !pesoObj}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer"
@@ -183,253 +232,227 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
               </div>
             </div>
           )}
+
+          {/* Perfil Nutricional */}
           {isReal && (
             <div className="rounded-xl p-5 space-y-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-white">Perfil Nutricional</h3>
+                  <h3 className="font-semibold text-white">🥗 Perfil Nutricional</h3>
                   <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>La IA usará estos datos para personalizar el plan de alimentación</p>
                 </div>
                 <button
                   onClick={async () => {
-                    setSavingPerfil(true)
-                    try {
-                      await updatePerfilNutricional(clientId, perfil)
-                      onToast('Perfil nutricional guardado', 'success')
-                    } catch {
-                      onToast('Error al guardar', 'error')
-                    } finally { setSavingPerfil(false) }
+                    setSavingNutri(true)
+                    try { await updatePerfilNutricional(clientId, nutri); onToast('Perfil nutricional guardado', 'success') }
+                    catch { onToast('Error al guardar', 'error') }
+                    finally { setSavingNutri(false) }
                   }}
-                  disabled={savingPerfil}
+                  disabled={savingNutri}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer"
-                  style={{ background: '#F5611A', opacity: savingPerfil ? 0.6 : 1 }}
+                  style={{ background: '#F5611A', opacity: savingNutri ? 0.6 : 1 }}
                 >
-                  {savingPerfil ? '...' : 'Guardar'}
+                  {savingNutri ? '...' : 'Guardar'}
                 </button>
               </div>
 
-              {/* Tipo de dieta */}
               <div>
-                <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>Tipo de dieta</label>
+                <SectionLabel>Tipo de dieta</SectionLabel>
                 <div className="flex flex-wrap gap-2">
-                  {(['omnivoro', 'vegetariano', 'vegano', 'pescatariano', 'sin_gluten', 'halal', 'kosher'] as const).map(tipo => (
-                    <button
-                      key={tipo}
-                      onClick={() => setPerfil(p => ({ ...p, tipoDieta: tipo }))}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all"
-                      style={{
-                        background: perfil.tipoDieta === tipo ? '#F5611A' : '#1E2130',
-                        color: perfil.tipoDieta === tipo ? 'white' : '#9CA3AF',
-                        border: `1px solid ${perfil.tipoDieta === tipo ? '#F5611A' : '#2a2d3e'}`,
-                      }}
-                    >
-                      {{ omnivoro: 'Omnívoro', vegetariano: 'Vegetariano', vegano: 'Vegano', pescatariano: 'Pescatariano', sin_gluten: 'Sin gluten', halal: 'Halal', kosher: 'Kosher' }[tipo]}
+                  {(['omnivoro', 'vegetariano', 'vegano', 'pescatariano', 'sin_gluten', 'halal', 'kosher'] as const).map(t => (
+                    <button key={t} onClick={() => setNutri(p => ({ ...p, tipoDieta: t }))}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+                      style={{ background: nutri.tipoDieta === t ? '#F5611A' : '#1E2130', color: nutri.tipoDieta === t ? 'white' : '#9CA3AF', border: `1px solid ${nutri.tipoDieta === t ? '#F5611A' : '#2a2d3e'}` }}>
+                      {{ omnivoro: 'Omnívoro', vegetariano: 'Vegetariano', vegano: 'Vegano', pescatariano: 'Pescatariano', sin_gluten: 'Sin gluten', halal: 'Halal', kosher: 'Kosher' }[t]}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Presupuesto */}
               <div>
-                <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>Presupuesto</label>
+                <SectionLabel>Presupuesto</SectionLabel>
+                <BtnGroup
+                  options={[{ v: 'economico', label: '💰 Económico' }, { v: 'moderado', label: '💳 Moderado' }, { v: 'premium', label: '✨ Premium' }]}
+                  value={nutri.presupuesto}
+                  onChange={v => setNutri(p => ({ ...p, presupuesto: v }))}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Habilidad culinaria</SectionLabel>
+                <BtnGroup
+                  options={[{ v: 'principiante', label: '🥄 Principiante' }, { v: 'intermedio', label: '🍳 Intermedio' }, { v: 'avanzado', label: '👨‍🍳 Avanzado' }]}
+                  value={nutri.habilidadCulinaria}
+                  onChange={v => setNutri(p => ({ ...p, habilidadCulinaria: v }))}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Tiempo disponible para cocinar al día</SectionLabel>
+                <BtnGroup
+                  options={[{ v: '15min', label: '⚡ 15 min' }, { v: '30min', label: '🕐 30 min' }, { v: '1hora', label: '🕑 1 hora' }, { v: 'mas1hora', label: '🍽️ +1 hora' }]}
+                  value={nutri.tiempoCocina}
+                  onChange={v => setNutri(p => ({ ...p, tiempoCocina: v }))}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Alergias / intolerancias</SectionLabel>
+                <TagInput
+                  tags={nutri.alergias}
+                  onAdd={t => setNutri(p => ({ ...p, alergias: [...p.alergias, t] }))}
+                  onRemove={t => setNutri(p => ({ ...p, alergias: p.alergias.filter(x => x !== t) }))}
+                  placeholder="Ej: lactosa, gluten, frutos secos…"
+                  color="#EF4444"
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Alimentos que no le gustan (aversiones)</SectionLabel>
+                <TagInput
+                  tags={nutri.aversiones}
+                  onAdd={t => setNutri(p => ({ ...p, aversiones: [...p.aversiones, t] }))}
+                  onRemove={t => setNutri(p => ({ ...p, aversiones: p.aversiones.filter(x => x !== t) }))}
+                  placeholder="Ej: hígado, col, berenjenas…"
+                  color="#F97316"
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Alimentos / comidas que le gustan (preferencias)</SectionLabel>
+                <TagInput
+                  tags={nutri.preferencias ?? []}
+                  onAdd={t => setNutri(p => ({ ...p, preferencias: [...(p.preferencias ?? []), t] }))}
+                  onRemove={t => setNutri(p => ({ ...p, preferencias: (p.preferencias ?? []).filter(x => x !== t) }))}
+                  placeholder="Ej: arroz, pollo, pasta, huevos…"
+                  color="#10B981"
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Supermercados habituales</SectionLabel>
+                <TagInput
+                  tags={nutri.supermercados ?? []}
+                  onAdd={t => setNutri(p => ({ ...p, supermercados: [...(p.supermercados ?? []), t] }))}
+                  onRemove={t => setNutri(p => ({ ...p, supermercados: (p.supermercados ?? []).filter(x => x !== t) }))}
+                  placeholder="Ej: Mercadona, Lidl, Carrefour…"
+                  color="#8B5CF6"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Perfil de Entrenamiento */}
+          {isReal && (
+            <div className="rounded-xl p-5 space-y-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-white">🏋️ Perfil de Entrenamiento</h3>
+                  <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Información física y de estilo de vida del cliente</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    setSavingEntr(true)
+                    try { await updatePerfilEntrenamiento(clientId, entr); onToast('Perfil de entrenamiento guardado', 'success') }
+                    catch { onToast('Error al guardar', 'error') }
+                    finally { setSavingEntr(false) }
+                  }}
+                  disabled={savingEntr}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer"
+                  style={{ background: '#F5611A', opacity: savingEntr ? 0.6 : 1 }}
+                >
+                  {savingEntr ? '...' : 'Guardar'}
+                </button>
+              </div>
+
+              <div>
+                <SectionLabel>Altura (cm)</SectionLabel>
+                <input
+                  type="number"
+                  value={entr.altura || ''}
+                  onChange={e => setEntr(p => ({ ...p, altura: parseInt(e.target.value) || 0 }))}
+                  placeholder="Ej: 175"
+                  className="w-32 px-3 py-2 rounded-xl text-sm text-white outline-none"
+                  style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Días disponibles para entrenar a la semana</SectionLabel>
                 <div className="flex gap-2">
-                  {(['economico', 'moderado', 'premium'] as const).map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setPerfil(prev => ({ ...prev, presupuesto: p }))}
-                      className="flex-1 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all"
-                      style={{
-                        background: perfil.presupuesto === p ? '#F5611A' : '#1E2130',
-                        color: perfil.presupuesto === p ? 'white' : '#9CA3AF',
-                        border: `1px solid ${perfil.presupuesto === p ? '#F5611A' : '#2a2d3e'}`,
-                      }}
-                    >
-                      {{ economico: '💰 Económico', moderado: '💳 Moderado', premium: '✨ Premium' }[p]}
+                  {[2, 3, 4, 5, 6].map(d => (
+                    <button key={d} onClick={() => setEntr(p => ({ ...p, diasEntreno: d }))}
+                      className="w-12 h-10 rounded-lg text-sm font-bold cursor-pointer"
+                      style={{ background: entr.diasEntreno === d ? '#F5611A' : '#1E2130', color: entr.diasEntreno === d ? 'white' : '#9CA3AF', border: `1px solid ${entr.diasEntreno === d ? '#F5611A' : '#2a2d3e'}` }}>
+                      {d}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Habilidad culinaria */}
               <div>
-                <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>Habilidad culinaria</label>
+                <SectionLabel>Tiempo disponible para entrenar a la semana</SectionLabel>
+                <BtnGroup
+                  options={[{ v: '1-2h', label: '1-2 h' }, { v: '3-4h', label: '3-4 h' }, { v: '5-7h', label: '5-7 h' }, { v: 'mas7h', label: '+7 h' }]}
+                  value={entr.tiempoEntrenoSemana}
+                  onChange={v => setEntr(p => ({ ...p, tiempoEntrenoSemana: v }))}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Tipo de trabajo</SectionLabel>
+                <BtnGroup
+                  options={[{ v: 'sentado', label: '💻 Sentado (oficina)' }, { v: 'mixto', label: '🔄 Mixto' }, { v: 'activo', label: '🏃 Activo (de pie)' }]}
+                  value={entr.tipoTrabajo}
+                  onChange={v => setEntr(p => ({ ...p, tipoTrabajo: v }))}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>Nivel de entrenamiento</SectionLabel>
+                <BtnGroup
+                  options={[{ v: 'principiante', label: '🌱 Principiante' }, { v: 'intermedio', label: '💪 Intermedio' }, { v: 'avanzado', label: '🏆 Avanzado' }]}
+                  value={entr.nivel}
+                  onChange={v => setEntr(p => ({ ...p, nivel: v }))}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>¿Cuánto tiempo lleva intentando el cambio físico?</SectionLabel>
+                <BtnGroup
+                  options={[{ v: 'menos1mes', label: '< 1 mes' }, { v: '1-3meses', label: '1-3 meses' }, { v: '3-12meses', label: '3-12 meses' }, { v: 'mas1año', label: '+1 año' }]}
+                  value={entr.tiempoIntentando}
+                  onChange={v => setEntr(p => ({ ...p, tiempoIntentando: v }))}
+                />
+              </div>
+
+              <div>
+                <SectionLabel>¿Ha tenido entrenador personal antes?</SectionLabel>
                 <div className="flex gap-2">
-                  {(['principiante', 'intermedio', 'avanzado'] as const).map(h => (
-                    <button
-                      key={h}
-                      onClick={() => setPerfil(prev => ({ ...prev, habilidadCulinaria: h }))}
-                      className="flex-1 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all"
-                      style={{
-                        background: perfil.habilidadCulinaria === h ? '#F5611A' : '#1E2130',
-                        color: perfil.habilidadCulinaria === h ? 'white' : '#9CA3AF',
-                        border: `1px solid ${perfil.habilidadCulinaria === h ? '#F5611A' : '#2a2d3e'}`,
-                      }}
-                    >
-                      {{ principiante: '🥄 Principiante', intermedio: '🍳 Intermedio', avanzado: '👨‍🍳 Avanzado' }[h]}
+                  {[{ v: true, label: '✅ Sí' }, { v: false, label: '❌ No' }].map(o => (
+                    <button key={String(o.v)} onClick={() => setEntr(p => ({ ...p, entrenadorPrevio: o.v }))}
+                      className="px-6 py-2 rounded-lg text-sm font-medium cursor-pointer"
+                      style={{ background: entr.entrenadorPrevio === o.v ? '#F5611A' : '#1E2130', color: entr.entrenadorPrevio === o.v ? 'white' : '#9CA3AF', border: `1px solid ${entr.entrenadorPrevio === o.v ? '#F5611A' : '#2a2d3e'}` }}>
+                      {o.label}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              {/* Alergias */}
-              <div>
-                <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>Alergias / intolerancias</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {perfil.alergias.map(a => (
-                    <span key={a} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs" style={{ background: 'rgba(239,68,68,0.15)', color: '#F87171' }}>
-                      {a}
-                      <button onClick={() => setPerfil(p => ({ ...p, alergias: p.alergias.filter(x => x !== a) }))} className="cursor-pointer ml-0.5 opacity-70 hover:opacity-100">×</button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ej: lactosa, gluten, frutos secos…"
-                    value={alergiasInput}
-                    onChange={e => setAlergiasInput(e.target.value)}
-                    onKeyDown={e => {
-                      if ((e.key === 'Enter' || e.key === ',') && alergiasInput.trim()) {
-                        e.preventDefault()
-                        const tag = alergiasInput.trim().replace(/,$/, '')
-                        if (tag && !perfil.alergias.includes(tag)) setPerfil(p => ({ ...p, alergias: [...p.alergias, tag] }))
-                        setAlergiasInput('')
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 rounded-xl text-xs text-white outline-none"
-                    style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
-                  />
-                  <button
-                    onClick={() => {
-                      const tag = alergiasInput.trim()
-                      if (tag && !perfil.alergias.includes(tag)) setPerfil(p => ({ ...p, alergias: [...p.alergias, tag] }))
-                      setAlergiasInput('')
-                    }}
-                    className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
-                    style={{ background: '#1E2130', color: '#F5611A', border: '1px solid #2a2d3e' }}
-                  >
-                    Añadir
-                  </button>
-                </div>
-              </div>
-
-              {/* Aversiones */}
-              <div>
-                <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>Aversiones (alimentos que no le gustan)</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {perfil.aversiones.map(a => (
-                    <span key={a} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs" style={{ background: 'rgba(245,97,26,0.12)', color: '#F97316' }}>
-                      {a}
-                      <button onClick={() => setPerfil(p => ({ ...p, aversiones: p.aversiones.filter(x => x !== a) }))} className="cursor-pointer ml-0.5 opacity-70 hover:opacity-100">×</button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ej: hígado, col, berenjenas…"
-                    value={aversionesInput}
-                    onChange={e => setAversionesInput(e.target.value)}
-                    onKeyDown={e => {
-                      if ((e.key === 'Enter' || e.key === ',') && aversionesInput.trim()) {
-                        e.preventDefault()
-                        const tag = aversionesInput.trim().replace(/,$/, '')
-                        if (tag && !perfil.aversiones.includes(tag)) setPerfil(p => ({ ...p, aversiones: [...p.aversiones, tag] }))
-                        setAversionesInput('')
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 rounded-xl text-xs text-white outline-none"
-                    style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
-                  />
-                  <button
-                    onClick={() => {
-                      const tag = aversionesInput.trim()
-                      if (tag && !perfil.aversiones.includes(tag)) setPerfil(p => ({ ...p, aversiones: [...p.aversiones, tag] }))
-                      setAversionesInput('')
-                    }}
-                    className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
-                    style={{ background: '#1E2130', color: '#F5611A', border: '1px solid #2a2d3e' }}
-                  >
-                    Añadir
-                  </button>
-                </div>
-              </div>
-
-              {/* Preferencias */}
-              <div>
-                <label className="text-xs font-medium mb-2 block" style={{ color: '#6B7280' }}>Preferencias (alimentos/comidas que le gustan)</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {(perfil.preferencias ?? []).map(a => (
-                    <span key={a} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs" style={{ background: 'rgba(16,185,129,0.12)', color: '#10B981' }}>
-                      {a}
-                      <button onClick={() => setPerfil(p => ({ ...p, preferencias: (p.preferencias ?? []).filter(x => x !== a) }))} className="cursor-pointer ml-0.5 opacity-70 hover:opacity-100">×</button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ej: arroz, pollo, pasta, huevos…"
-                    value={preferenciasInput}
-                    onChange={e => setPreferenciasInput(e.target.value)}
-                    onKeyDown={e => {
-                      if ((e.key === 'Enter' || e.key === ',') && preferenciasInput.trim()) {
-                        e.preventDefault()
-                        const tag = preferenciasInput.trim().replace(/,$/, '')
-                        if (tag && !(perfil.preferencias ?? []).includes(tag)) setPerfil(p => ({ ...p, preferencias: [...(p.preferencias ?? []), tag] }))
-                        setPreferenciasInput('')
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 rounded-xl text-xs text-white outline-none"
-                    style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
-                  />
-                  <button
-                    onClick={() => {
-                      const tag = preferenciasInput.trim()
-                      if (tag && !(perfil.preferencias ?? []).includes(tag)) setPerfil(p => ({ ...p, preferencias: [...(p.preferencias ?? []), tag] }))
-                      setPreferenciasInput('')
-                    }}
-                    className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
-                    style={{ background: '#1E2130', color: '#F5611A', border: '1px solid #2a2d3e' }}
-                  >
-                    Añadir
-                  </button>
                 </div>
               </div>
             </div>
           )}
         </div>
       )}
-      {activeTab === 'rutina' && (
-        <RutinaTab
-          rutina={demoRutina}
-          clientId={isReal ? clientId : undefined}
-          onToast={onToast}
-        />
-      )}
-      {activeTab === 'peso' && (
-        <PesoTab
-          pesoData={demoPeso}
-          clientId={isReal ? clientId : undefined}
-          onToast={onToast}
-        />
-      )}
+
+      {activeTab === 'rutina' && <RutinaTab rutina={demoRutina} clientId={isReal ? clientId : undefined} onToast={onToast} />}
+      {activeTab === 'peso' && <PesoTab pesoData={demoPeso} clientId={isReal ? clientId : undefined} onToast={onToast} />}
       {activeTab === 'nutricion' && <NutricionTab clientId={clientId} onToast={onToast} />}
       {activeTab === 'chat' && (
-        <ChatTab
-          clientId={clientId}
-          clienteNombre={client.nombre}
-          clienteColor={client.color}
-          clienteIniciales={client.iniciales}
-          onToast={onToast}
-        />
+        <ChatTab clientId={clientId} clienteNombre={client.nombre} clienteColor={client.color} clienteIniciales={client.iniciales} onToast={onToast} />
       )}
       {activeTab === 'reportes' && (
         <ReportesTab
           client={{ nombre: client.nombre, cumplimiento: client.cumplimiento, semanas: client.semanas, pesoInicial: client.pesoInicial }}
-          pesoData={demoPeso}
-          nutricion={demoNutricion}
-          onToast={onToast}
+          pesoData={demoPeso} nutricion={demoNutricion} onToast={onToast}
         />
       )}
     </div>

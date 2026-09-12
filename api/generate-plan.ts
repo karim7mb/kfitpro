@@ -44,6 +44,11 @@ export default async function handler(req: Request): Promise<Response> {
       if (perfilNutricional.alergias?.length) perfilLines.push(`- Alergias/intolerancias (EXCLUIR): ${perfilNutricional.alergias.join(', ')}`)
       if (perfilNutricional.aversiones?.length) perfilLines.push(`- Aversiones (evitar o sustituir): ${perfilNutricional.aversiones.join(', ')}`)
       if (perfilNutricional.preferencias?.length) perfilLines.push(`- Preferencias (incluir siempre que sea posible): ${perfilNutricional.preferencias.join(', ')}`)
+      if (perfilNutricional.supermercados?.length) perfilLines.push(`- Supermercados habituales (usar productos típicos de estos): ${perfilNutricional.supermercados.join(', ')}`)
+      if (perfilNutricional.tiempoCocina) {
+        const tMap: Record<string, string> = { '15min': '15 minutos', '30min': '30 minutos', '1hora': '1 hora', 'mas1hora': 'más de 1 hora' }
+        perfilLines.push(`- Tiempo para cocinar al día: ${tMap[perfilNutricional.tiempoCocina] ?? perfilNutricional.tiempoCocina} (adaptar complejidad de recetas)`)
+      }
     }
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {

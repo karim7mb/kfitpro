@@ -494,9 +494,21 @@ export interface PerfilNutricional {
   alergias: string[]
   aversiones: string[]
   preferencias: string[]
+  supermercados: string[]
   tipoDieta: string
   presupuesto: string
   habilidadCulinaria: string
+  tiempoCocina: string
+}
+
+export interface PerfilEntrenamiento {
+  altura: number
+  diasEntreno: number
+  tiempoEntrenoSemana: string
+  tipoTrabajo: string
+  nivel: string
+  tiempoIntentando: string
+  entrenadorPrevio: boolean
 }
 
 export async function fetchPerfilNutricional(clienteId: string): Promise<PerfilNutricional | null> {
@@ -513,6 +525,24 @@ export async function updatePerfilNutricional(clienteId: string, perfil: PerfilN
   const { error } = await supabase
     .from('clientes')
     .update({ perfil_nutricional: perfil })
+    .eq('usuario_id', clienteId)
+  if (error) throw error
+}
+
+export async function fetchPerfilEntrenamiento(clienteId: string): Promise<PerfilEntrenamiento | null> {
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('perfil_entrenamiento')
+    .eq('usuario_id', clienteId)
+    .single()
+  if (error || !data?.perfil_entrenamiento) return null
+  return data.perfil_entrenamiento as PerfilEntrenamiento
+}
+
+export async function updatePerfilEntrenamiento(clienteId: string, perfil: PerfilEntrenamiento): Promise<void> {
+  const { error } = await supabase
+    .from('clientes')
+    .update({ perfil_entrenamiento: perfil })
     .eq('usuario_id', clienteId)
   if (error) throw error
 }
