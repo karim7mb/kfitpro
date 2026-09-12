@@ -223,6 +223,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [searchingFoto, setSearchingFoto] = useState<string | null>(null)
   const [uploadingFoto, setUploadingFoto] = useState<string | null>(null)
   const [pendingUploadMealId, setPendingUploadMealId] = useState<string | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [foodQuery, setFoodQuery] = useState('')
   const [foodResults, setFoodResults] = useState<FoodResult[]>([])
@@ -506,7 +507,12 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
               {comida.foto_url && isOpen && (
                 <div className="px-4 pb-3">
                   <div className="relative rounded-xl overflow-hidden" style={{ height: 120 }}>
-                    <img src={comida.foto_url} alt={comida.nombre} className="w-full h-full object-cover" />
+                    <img
+                      src={comida.foto_url}
+                      alt={comida.nombre}
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => setLightboxUrl(comida.foto_url!)}
+                    />
                     <button
                       onClick={() => updateComida(comida.id, 'foto_url', '')}
                       className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs cursor-pointer font-bold"
@@ -698,6 +704,27 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
         className="hidden"
         onChange={handleFileSelected}
       />
+
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.92)' }}
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-xl font-bold cursor-pointer"
+            style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
+            onClick={() => setLightboxUrl(null)}
+          >×</button>
+          <img
+            src={lightboxUrl}
+            alt="Foto comida"
+            className="max-w-full max-h-full rounded-2xl object-contain"
+            style={{ maxHeight: '85vh' }}
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
