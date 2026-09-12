@@ -276,6 +276,27 @@ function generateMealFoods(tipo: 'desayuno' | 'almuerzo' | 'merienda' | 'cena' |
   return [mk(cf, cf.nombre === 'Avena en copos' ? 50 : 100)]
 }
 
+function scaleMealToCalories(alimentos: Alimento[], targetCal: number): Alimento[] {
+  const actualCal = alimentos.reduce((s, a) => s + a.calorias, 0)
+  if (actualCal === 0 || Math.abs(actualCal - targetCal) < targetCal * 0.08) return alimentos
+  // Scale the protein source (index 0) to compensate the gap
+  const gap = targetCal - actualCal
+  const protein = alimentos[0]
+  const food = ALIMENTOS_DB.find(x => x.nombre === protein.nombre)
+  if (!food || food.cal100 === 0) return alimentos
+  const extraGrams = Math.round((gap * 100 / food.cal100) / 25) * 25
+  const newGrams = Math.max(25, protein.gramos + extraGrams)
+  const f = newGrams / 100
+  return alimentos.map((a, i) => i !== 0 ? a : {
+    ...a,
+    gramos: newGrams,
+    calorias: Math.round(food.cal100 * f),
+    proteinas: Math.round(food.prot100 * f),
+    carbos: Math.round(food.carbs100 * f),
+    grasas: Math.round(food.fat100 * f),
+  })
+}
+
 function runGenerator(objetivo: Objetivo, calorias: number, numComidas: number, clienteId: string, entrenadorId: string): PlanNutricional {
   const [pPct, cPct] = MACRO_SPLITS[objetivo]
   const fPct = 1 - pPct - cPct
@@ -284,12 +305,16 @@ function runGenerator(objetivo: Objetivo, calorias: number, numComidas: number, 
   const totalFat   = Math.round((calorias * fPct) / 9)
 
   const templates = MEAL_TEMPLATES[numComidas] ?? MEAL_TEMPLATES[4]
-  const comidas: ComidaPlan[] = templates.map(t => ({
-    id: Math.random().toString(36).slice(2),
-    nombre: t.nombre,
-    hora: t.hora,
-    alimentos: generateMealFoods(t.tipo, Math.round(totalProt * t.pct), Math.round(totalCarbs * t.pct), objetivo),
-  }))
+  const comidas: ComidaPlan[] = templates.map(t => {
+    const mealCal = Math.round(calorias * t.pct)
+    const raw = generateMealFoods(t.tipo, Math.round(totalProt * t.pct), Math.round(totalCarbs * t.pct), objetivo)
+    return {
+      id: Math.random().toString(36).slice(2),
+      nombre: t.nombre,
+      hora: t.hora,
+      alimentos: scaleMealToCalories(raw, mealCal),
+    }
+  })
 
   const labels: Record<Objetivo, string> = { definicion: 'Definición', volumen: 'Volumen', mantenimiento: 'Mantenimiento', perdida: 'Pérdida de grasa' }
   return { cliente_id: clienteId, entrenador_id: entrenadorId, nombre: `Plan ${labels[objetivo]} — ${calorias} kcal`, calorias_objetivo: calorias, proteinas_g: totalProt, carbos_g: totalCarbs, grasas_g: totalFat, comidas }
