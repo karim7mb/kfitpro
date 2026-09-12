@@ -27,7 +27,7 @@ const MUSCLEWIKI_VIDEOS: VideoEntry[] = [
   { keywords: ['press inclinado barra', 'press banca inclinado'], video: 'male-Barbell-barbell-incline-bench-press-front.mp4', slug: 'barbell-incline-bench-press' },
   { keywords: ['flexiones', 'push-up', 'push up', 'lagartijas'], video: 'male-Bodyweight-push-up-front.mp4', slug: 'push-up' },
   { keywords: ['aperturas maquina', 'pec fly maquina', 'contractor pectoral'], video: 'male-Machine-machine-pec-fly-front.mp4', slug: 'machine-pec-fly' },
-  { keywords: ['aperturas inclinado', 'aperturas mancuernas inclinado', 'flies inclinado'], video: 'male-dumbbell-incline-chest-flys-front.mp4', slug: 'dumbbell-incline-chest-flys' },
+  { keywords: ['aperturas de pecho', 'aperturas pecho', 'aperturas inclinado', 'aperturas mancuernas', 'flies pecho'], video: 'male-dumbbell-incline-chest-flys-front.mp4', slug: 'dumbbell-incline-chest-flys' },
   { keywords: ['aperturas polea', 'cable fly', 'cruces polea'], video: 'male-cable-pec-fly-front.mp4', slug: 'cable-pec-fly' },
   { keywords: ['press polea pecho', 'press pecho polea', 'cable chest press'], video: 'male-cable-chestpress-front.mp4', slug: 'cable-chestpress' },
   { keywords: ['press agarre estrecho', 'press banca agarre cerrado', 'agarre estrecho'], video: 'male-Barbell-barbell-close-grip-bench-press-front.mp4', slug: 'barbell-close-grip-bench-press' },
@@ -36,18 +36,23 @@ const MUSCLEWIKI_VIDEOS: VideoEntry[] = [
   { keywords: ['press hombro mancuernas', 'press arnold', 'press sentado mancuernas', 'press hombros mancuernas'], video: 'male-dumbbell-seated-overhead-press-front.mp4', slug: 'dumbbell-seated-overhead-press' },
   { keywords: ['elevaciones laterales polea', 'lateral raise polea', 'elevacion lateral cable'], video: 'male-Cables-cable-lateral-raise-front.mp4', slug: 'cable-lateral-raise' },
   { keywords: ['remo al menton', 'remo menton barra', 'upright row'], video: 'male-Barbell-barbell-upright-row-front.mp4', slug: 'barbell-upright-row' },
+  { keywords: ['encogimientos de hombros', 'encogimientos hombros', 'shrugs', 'encogimientos'], video: 'male-Dumbbells-dumbbell-shrug-front.mp4', slug: 'dumbbell-shrug' },
   // Espalda
   { keywords: ['dominadas', 'chin-up', 'chin up', 'pullup', 'pull-up', 'jalones peso corporal'], video: 'male-bodyweight-chinup-front.mp4', slug: 'chinup' },
-  { keywords: ['remo mancuerna', 'remo un brazo', 'single arm row', 'remo a una mano'], video: 'male-Dumbbells-dumbbell-single-arm-row-front.mp4', slug: 'dumbbell-single-arm-row' },
+  { keywords: ['remo con mancuernas', 'remo mancuernas', 'remo mancuerna', 'remo un brazo', 'single arm row', 'remo a una mano'], video: 'male-Dumbbells-dumbbell-single-arm-row-front.mp4', slug: 'dumbbell-single-arm-row' },
+  { keywords: ['remo con barra', 'remo barra', 'bent over row', 'remo agarre prono', 'remo inclinado barra'], video: 'male-barbell-bent-over-row-front.mp4', slug: 'barbell-bent-over-row' },
   { keywords: ['pullover mancuerna', 'pullover mancuernas'], video: 'male-Dumbbells-dumbbell-pullover-front.mp4', slug: 'dumbbell-pullover' },
   { keywords: ['pullover maquina'], video: 'male-Machine-machine-pullover-front.mp4', slug: 'machine-pullover' },
   // Biceps
+  { keywords: ['curl de biceps con mancuernas', 'curl biceps mancuernas', 'curl mancuernas', 'curl alterno mancuernas', 'curl con mancuernas'], video: 'male-Dumbbells-dumbbell-curl-front.mp4', slug: 'dumbbell-curl' },
+  { keywords: ['curl martillo', 'hammer curl', 'curl martillo mancuernas'], video: 'male-Dumbbells-dumbbell-hammer-curl-front.mp4', slug: 'dumbbell-hammer-curl' },
   { keywords: ['curl barra', 'curl con barra', 'curl biceps barra'], video: 'male-Barbell-barbell-curl-front.mp4', slug: 'barbell-curl' },
   { keywords: ['curl predicador', 'curl scott', 'curl banco predicador'], video: 'male-Dumbbells-dumbbell-preacher-curl-front.mp4', slug: 'dumbbell-preacher-curl' },
   { keywords: ['curl inclinado mancuernas', 'curl inclinado', 'curl banco inclinado'], video: 'male-Dumbbells-dumbbell-incline-curl-front.mp4', slug: 'dumbbell-incline-curl' },
   // Triceps
   { keywords: ['extension triceps polea', 'polea triceps', 'pushdown', 'jalones triceps', 'press down triceps'], video: 'male-Cables-cable-push-down-front.mp4', slug: 'cable-push-down' },
   { keywords: ['press frances', 'skull crusher', 'rompe craneo', 'skullcrusher'], video: 'male-Dumbbells-dumbbell-skullcrusher-front.mp4', slug: 'dumbbell-skullcrusher' },
+  { keywords: ['fondos en paralelas', 'fondos paralelas', 'dips paralelas', 'paralelas'], video: 'male-Bodyweight-dips-front.mp4', slug: 'dips' },
   { keywords: ['fondos banco', 'fondos en banco', 'bench dips', 'dips banco'], video: 'male-Bodyweight-bench-dips-front.mp4', slug: 'bench-dips' },
   // Piernas
   { keywords: ['sentadilla con barra', 'squat barra', 'sentadilla barra', 'sentadilla trasera'], video: 'male-Barbell-barbell-squat-front.mp4', slug: 'barbell-squat' },
@@ -73,6 +78,9 @@ const MUSCLEWIKI_VIDEOS: VideoEntry[] = [
   { keywords: ['swing kettlebell', 'kettlebell swing', 'swing pesa rusa'], video: 'male-Kettlebells-kettlebell-swing-front.mp4', slug: 'kettlebell-swing' },
 ]
 
+// Equipment/preposition words that don't identify an exercise uniquely — excluded from scoring
+const SCORE_STOP = new Set(['mancuernas', 'barra', 'polea', 'maquina', 'cable', 'cables', 'kettlebell', 'banda', 'con', 'los', 'las', 'una', 'unos'])
+
 function normalizeText(s: string): string {
   return s.toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -83,20 +91,21 @@ function normalizeText(s: string): string {
 
 function findMusclewikiVideo(exerciseName: string): { video: string; slug: string } | null {
   const norm = normalizeText(exerciseName)
-  // Direct keyword match
+  // Direct keyword match (most specific)
   for (const entry of MUSCLEWIKI_VIDEOS) {
     for (const kw of entry.keywords) {
       if (norm.includes(normalizeText(kw))) return { video: entry.video, slug: entry.slug }
     }
   }
-  // Word-overlap scoring
-  const words = norm.split(' ').filter(w => w.length > 2)
+  // Word-overlap scoring: exclude equipment/stop words to avoid false positives
+  const words = norm.split(' ').filter(w => w.length > 3 && !SCORE_STOP.has(w))
+  if (words.length === 0) return null
   let best: { video: string; slug: string } | null = null
   let bestScore = 0
   for (const entry of MUSCLEWIKI_VIDEOS) {
     let score = 0
     for (const kw of entry.keywords) {
-      const kwWords = normalizeText(kw).split(' ').filter(w => w.length > 2)
+      const kwWords = normalizeText(kw).split(' ').filter(w => w.length > 3 && !SCORE_STOP.has(w))
       const hits = kwWords.filter(w => words.includes(w)).length
       score = Math.max(score, hits)
     }
