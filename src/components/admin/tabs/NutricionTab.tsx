@@ -61,11 +61,11 @@ interface FoodResult {
   fat100: number
 }
 
-async function searchOpenFoodFacts(query: string): Promise<FoodResult[]> {
+async function searchOpenFoodFacts(query: string): Promise<FoodResult[] | { error: string }> {
   try {
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=10&fields=product_name,nutriments`
+    const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&fields=product_name%2Cnutriments&page_size=10&sort_by=unique_scans_n`
     const res = await fetch(url)
-    if (!res.ok) return []
+    if (!res.ok) return { error: `HTTP ${res.status}` }
     const data = await res.json()
     const out: FoodResult[] = []
     for (const p of data.products ?? []) {
@@ -81,8 +81,8 @@ async function searchOpenFoodFacts(query: string): Promise<FoodResult[]> {
       if (out.length >= 6) break
     }
     return out
-  } catch {
-    return []
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Error de red' }
   }
 }
 
@@ -125,6 +125,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [foodQuery, setFoodQuery] = useState('')
   const [foodResults, setFoodResults] = useState<FoodResult[]>([])
   const [foodSearching, setFoodSearching] = useState(false)
+  const [foodError, setFoodError] = useState<string | null>(null)
   const [showFoodDrop, setShowFoodDrop] = useState(false)
   const [selectedFoodBase, setSelectedFoodBase] = useState<FoodResult | null>(null)
 
@@ -133,15 +134,24 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
     setFoodResults([])
     setShowFoodDrop(false)
     setSelectedFoodBase(null)
+    setFoodError(null)
   }, [addingTo])
 
   useEffect(() => {
-    if (!foodQuery || foodQuery.length < 2) { setFoodResults([]); setShowFoodDrop(false); return }
+    if (!foodQuery || foodQuery.length < 2) { setFoodResults([]); setShowFoodDrop(false); setFoodError(null); return }
     const timer = setTimeout(async () => {
       setFoodSearching(true)
-      const results = await searchOpenFoodFacts(foodQuery)
-      setFoodResults(results)
-      setShowFoodDrop(results.length > 0)
+      setFoodError(null)
+      const res = await searchOpenFoodFacts(foodQuery)
+      if (Array.isArray(res)) {
+        setFoodResults(res)
+        setShowFoodDrop(true)
+        if (res.length === 0) setFoodError('Sin resultados — introduce los macros manualmente')
+      } else {
+        setFoodError(`Error: ${res.error}`)
+        setFoodResults([])
+        setShowFoodDrop(false)
+      }
       setFoodSearching(false)
     }, 500)
     return () => clearTimeout(timer)
@@ -417,6 +427,12 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
                             <span className="absolute right-2.5 top-2.5 text-xs" style={{ color: '#10B981' }}>✓</span>
                           )}
                         </div>
+                        {foodSearching && (
+                          <p className="text-xs mt-1 px-1" style={{ color: '#6B7280' }}>Buscando en base de datos...</p>
+                        )}
+                        {!foodSearching && foodError && (
+                          <p className="text-xs mt-1 px-1" style={{ color: '#F59E0B' }}>{foodError}</p>
+                        )}
                         {showFoodDrop && foodResults.length > 0 && (
                           <div className="absolute z-30 w-full mt-1 rounded-xl overflow-hidden shadow-xl" style={{ background: '#0D0E13', border: '1px solid #2a2d3e' }}>
                             {foodResults.map((f, i) => (
