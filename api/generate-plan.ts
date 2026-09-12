@@ -1,5 +1,16 @@
 export const config = { runtime: 'edge' }
 
+function findArray(obj: unknown): unknown[] | null {
+  if (Array.isArray(obj) && obj.length > 0) return obj
+  if (typeof obj === 'object' && obj !== null) {
+    for (const v of Object.values(obj as Record<string, unknown>)) {
+      const found = findArray(v)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
@@ -18,14 +29,13 @@ export default async function handler(req: Request): Promise<Response> {
         temperature: 0.7,
         messages: [
           {
-            role: 'system',
-            content: `You are a sports nutritionist. Return ONLY a JSON object with a "comidas" array.
-Example: {"comidas":[{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]}]}
-Rules: use Spanish food names, max 250g animal protein per meal, max 200g cooked carbs per meal, max 40g whey, include vegetables in main meals, macros must be accurate for the gram amounts.`,
-          },
-          {
             role: 'user',
-            content: `Create a ${numComidas}-meal daily nutrition plan for: ${sexo} ${edad}yo ${peso}kg ${altura}cm, activity level ${actividad}, goal ${objetivo}, ${calorias} kcal/day. Macros: ${protG}g protein, ${carbsG}g carbs, ${fatG}g fat. Return JSON only.`,
+            content: `You are a sports nutritionist. Create a ${numComidas}-meal daily plan for: ${sexo} ${edad}yo ${peso}kg ${altura}cm, ${actividad} activity, ${objetivo} goal, ${calorias} kcal. Macros: ${protG}g protein, ${carbsG}g carbs, ${fatG}g fat.
+
+Return ONLY a JSON object like this (no other text):
+{"comidas":[{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]},{"nombre":"Almuerzo","hora":"13:00","alimentos":[{"nombre":"Pechuga de pollo","gramos":180,"calorias":198,"proteinas":41,"carbos":0,"grasas":4}]}]}
+
+Use Spanish food names. Max 250g protein per meal, max 200g cooked carbs, max 40g whey. Include vegetables in main meals.`,
           },
         ],
       }),
@@ -39,31 +49,27 @@ Rules: use Spanish food names, max 250g animal protein per meal, max 200g cooked
     const data = await res.json()
     const msg = data.choices?.[0]?.message ?? {}
     const content: string = msg.content ?? msg.reasoning_content ?? ''
-    if (!content) return Response.json({ error: `Respuesta vacía. Keys: ${Object.keys(msg).join(', ')}. Full: ${JSON.stringify(data).slice(0, 400)}` }, { status: 500 })
 
-    // Try to extract JSON: first as object with comidas key, then as bare array
-    const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '')
-    let comidas: unknown[] | null = null
-
-    const objMatch = cleaned.match(/\{[\s\S]*\}/)
-    if (objMatch) {
-      try {
-        const obj = JSON.parse(objMatch[0])
-        const arr = obj.comidas ?? obj.meals ?? Object.values(obj).find(v => Array.isArray(v))
-        if (Array.isArray(arr)) comidas = arr
-      } catch { /* fall through */ }
+    if (!content) {
+      return Response.json({ error: `Vacío. Keys: ${Object.keys(msg).join(',')} | ${JSON.stringify(data).slice(0, 300)}` }, { status: 500 })
     }
 
-    if (!comidas) {
-      const arrMatch = cleaned.match(/\[[\s\S]*\]/)
-      if (arrMatch) {
-        try { comidas = JSON.parse(arrMatch[0]) } catch { /* fall through */ }
+    // Extract JSON from response (strip markdown if present)
+    const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '')
+
+    // Try JSON object first, then array
+    for (const pattern of [/\{[\s\S]*\}/, /\[[\s\S]*\]/]) {
+      const match = cleaned.match(pattern)
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[0])
+          const comidas = findArray(parsed)
+          if (comidas && comidas.length > 0) return Response.json({ comidas })
+        } catch { /* continue */ }
       }
     }
 
-    if (!Array.isArray(comidas)) return Response.json({ error: `Sin comidas: ${content.slice(0, 500)}` }, { status: 500 })
-
-    return Response.json({ comidas })
+    return Response.json({ error: `Sin JSON. Modelo devolvió: ${content.slice(0, 500)}` }, { status: 500 })
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 })
   }
