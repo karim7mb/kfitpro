@@ -196,6 +196,14 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
                 }
               </button>
 
+              {isOpen && comida.foto_url && (
+                <div className="px-5 pb-3">
+                  <div className="rounded-xl overflow-hidden" style={{ height: 160 }}>
+                    <img src={comida.foto_url} alt={comida.nombre} className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              )}
+
               {isOpen && comida.alimentos.length > 0 && (
                 <div className="px-5 pb-4">
                   <div className="grid text-xs mb-2 px-2" style={{ gridTemplateColumns: '1fr 50px 50px 40px 40px 40px', color: '#4B5563' }}>

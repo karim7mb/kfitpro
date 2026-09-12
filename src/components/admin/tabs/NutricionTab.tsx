@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Save } from 'lucide-react'
+import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Save, Image } from 'lucide-react'
 import { supabase, fetchPlanNutricional, upsertPlanNutricional, type PlanNutricional, type ComidaPlan, type Alimento } from '../../../lib/supabase'
+
+const UNSPLASH_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY as string | undefined
+
+async function buscarFotoUnsplash(comida: ComidaPlan): Promise<string | null> {
+  if (!UNSPLASH_KEY) return null
+  const ingredientes = comida.alimentos.slice(0, 3).map(a => a.nombre).join(' ')
+  const query = encodeURIComponent(`${comida.nombre} ${ingredientes} healthy food meal`)
+  const res = await fetch(`https://api.unsplash.com/search/photos?query=${query}&per_page=5&orientation=landscape&client_id=${UNSPLASH_KEY}`)
+  if (!res.ok) return null
+  const data = await res.json()
+  const results: { urls: { regular: string } }[] = data.results ?? []
+  if (results.length === 0) return null
+  const idx = Math.floor(Math.random() * Math.min(results.length, 3))
+  return results[idx].urls.regular
+}
 
 interface NutricionTabProps {
   clientId: string
@@ -37,6 +52,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [addingTo, setAddingTo] = useState<string | null>(null)
   const [newFood, setNewFood] = useState({ nombre: '', gramos: '', calorias: '', proteinas: '', carbos: '', grasas: '' })
+  const [searchingFoto, setSearchingFoto] = useState<string | null>(null)
 
   useEffect(() => {
     if (demo) return
@@ -79,6 +95,19 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
 
   const updateComida = (cId: string, field: keyof ComidaPlan, value: string) => {
     setPlan(p => p ? { ...p, comidas: p.comidas.map(c => c.id === cId ? { ...c, [field]: value } : c) } : p)
+  }
+
+  const handleBuscarFoto = async (comida: ComidaPlan) => {
+    setSearchingFoto(comida.id)
+    try {
+      const url = await buscarFotoUnsplash(comida)
+      if (url) updateComida(comida.id, 'foto_url', url)
+      else onToast('No se encontró foto. Añade VITE_UNSPLASH_ACCESS_KEY al .env', 'error')
+    } catch {
+      onToast('Error al buscar foto', 'error')
+    } finally {
+      setSearchingFoto(null)
+    }
   }
 
   const addAlimento = (cId: string) => {
@@ -207,10 +236,40 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
                   style={{ color: '#6B7280', border: '1px solid #2a2d3e' }}
                 />
                 <span className="text-xs font-medium" style={{ color: '#F5611A' }}>{calComida} kcal</span>
+                {UNSPLASH_KEY && (
+                  <button
+                    onClick={() => handleBuscarFoto(comida)}
+                    disabled={searchingFoto === comida.id}
+                    className="cursor-pointer"
+                    title="Buscar foto automática"
+                    style={{ color: comida.foto_url ? '#10B981' : '#4B5563' }}
+                  >
+                    {searchingFoto === comida.id
+                      ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} />
+                      : <Image style={{ width: 14, height: 14 }} />}
+                  </button>
+                )}
                 <button onClick={() => removeComida(comida.id)} className="cursor-pointer" style={{ color: '#4B5563' }}>
                   <Trash2 style={{ width: 14, height: 14 }} />
                 </button>
               </div>
+              {comida.foto_url && isOpen && (
+                <div className="px-4 pb-3">
+                  <div className="relative rounded-xl overflow-hidden" style={{ height: 120 }}>
+                    <img src={comida.foto_url} alt={comida.nombre} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => updateComida(comida.id, 'foto_url', '')}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs cursor-pointer font-bold"
+                      style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}
+                    >×</button>
+                    <button
+                      onClick={() => handleBuscarFoto(comida)}
+                      className="absolute bottom-2 right-2 px-2 py-1 rounded-lg text-xs cursor-pointer font-medium"
+                      style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}
+                    >Cambiar</button>
+                  </div>
+                </div>
+              )}
 
               {isOpen && (
                 <div className="px-4 pb-3">

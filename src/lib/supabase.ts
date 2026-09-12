@@ -280,6 +280,7 @@ export interface ComidaPlan {
   id: string
   nombre: string
   hora: string
+  foto_url?: string
   alimentos: Alimento[]
 }
 
