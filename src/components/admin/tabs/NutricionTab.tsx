@@ -325,7 +325,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
           const calComida = comida.alimentos.reduce((s, a) => s + a.calorias, 0)
           const isOpen = expanded[comida.id] ?? true
           return (
-            <div key={comida.id} className="rounded-xl overflow-hidden" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+            <div key={comida.id} className="rounded-xl" style={{ background: '#161820', border: '1px solid #1E2130' }}>
               <div className="px-4 py-3 flex items-center gap-3">
                 <button onClick={() => setExpanded(p => ({ ...p, [comida.id]: !isOpen }))} className="cursor-pointer">
                   {isOpen ? <ChevronUp style={{ width: 16, height: 16, color: '#6B7280' }} /> : <ChevronDown style={{ width: 16, height: 16, color: '#6B7280' }} />}
