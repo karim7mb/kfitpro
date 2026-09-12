@@ -31,10 +31,12 @@ async function buscarFotoUnsplash(comida: ComidaPlan): Promise<string | { error:
   const nombreEn = MEAL_EN[comida.nombre.toLowerCase().trim()] ?? comida.nombre
   const mainEn = translateFood(comida.alimentos[0]?.nombre ?? '')
   const secondEn = translateFood(comida.alimentos[1]?.nombre ?? '')
+  const isBowl = ['desayuno', 'merienda'].includes(comida.nombre.toLowerCase().trim())
+  const style = isBowl ? 'bowl healthy nutrition fitness' : 'meal prep plate healthy fitness nutrition'
   const queries = [
-    `${mainEn} ${secondEn} plated dish food photography`,
-    `${nombreEn} ${mainEn} plated meal`,
-    `${nombreEn} healthy plated dish`,
+    `${mainEn} ${secondEn} ${style}`,
+    `${nombreEn} ${mainEn} healthy fitness food`,
+    `${nombreEn} healthy fitness meal`,
   ]
   for (const q of queries) {
     const res = await fetch(
