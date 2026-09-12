@@ -346,34 +346,22 @@ async function generatePlanWithGroq(
 ): Promise<PlanNutricional> {
   if (!GROQ_KEY) throw new Error('Sin API key de Groq')
 
-  const objLabels: Record<Objetivo, string> = {
-    definicion: 'definición muscular (déficit calórico -400 kcal)',
-    volumen: 'volumen muscular (superávit calórico +400 kcal)',
-    mantenimiento: 'mantenimiento del peso',
-    perdida: 'pérdida de grasa (déficit calórico -600 kcal)',
-  }
-  const actLabels: Record<Actividad, string> = {
-    sedentario: 'sedentario (trabajo de escritorio, sin ejercicio)',
-    ligero: 'actividad ligera (ejercicio 1-3 días/semana)',
-    moderado: 'actividad moderada (ejercicio 4-5 días/semana)',
-    activo: 'muy activo (ejercicio 6-7 días/semana o trabajo físico)',
-  }
   const [pPct, cPct] = MACRO_SPLITS[objetivo]
   const protG  = Math.round((calorias * pPct) / 4)
   const carbsG = Math.round((calorias * cPct) / 4)
   const fatG   = Math.round((calorias * (1 - pPct - cPct)) / 9)
 
-  const systemPrompt = `Nutricionista deportivo. Crea planes en JSON válido únicamente, sin texto extra ni markdown.
-Formato: [{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]}]
-Reglas: alimentos españoles, porciones realistas (máx 250g proteína, máx 200g carbohidrato cocido, máx 40g whey), verduras en comidas principales, macros precisos.`
+  const systemPrompt = `Sports nutritionist. Reply ONLY with a valid JSON array, no markdown, no explanation.
+Format: [{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]}]
+Rules: Spanish food names, realistic portions (max 250g animal protein, max 200g cooked carbs, max 40g whey), include vegetables in main meals, accurate macros per grams.`
 
-  const userPrompt = `Plan para ${sexo} ${edad}a ${peso}kg ${altura}cm, actividad ${actividad}, objetivo ${objetivo}, ${calorias}kcal, ${numComidas} comidas. Macros: ${protG}g prot ${carbsG}g carbs ${fatG}g grasas. Solo JSON.`
+  const userPrompt = `Create a ${numComidas}-meal daily plan: ${sexo} ${edad}yo ${peso}kg ${altura}cm, ${actividad} activity, ${objetivo} goal, ${calorias}kcal target. Macros: ${protG}g protein ${carbsG}g carbs ${fatG}g fat. JSON only.`
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: 'groq/compound-mini',
+      model: 'openai/gpt-oss-120b',
       messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
       temperature: 0.7,
       max_tokens: 800,
