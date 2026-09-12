@@ -391,7 +391,7 @@ Las comidas deben sumar aproximadamente ${calorias} kcal (±5%). Macros exactos 
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: 'llama3-70b-8192',
+      model: 'mixtral-8x7b-32768',
       messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
       temperature: 0.7,
       max_tokens: 3000,
