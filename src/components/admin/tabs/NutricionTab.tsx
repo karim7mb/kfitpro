@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Save, Image } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Save, Image, Upload } from 'lucide-react'
 import { supabase, fetchPlanNutricional, upsertPlanNutricional, type PlanNutricional, type ComidaPlan, type Alimento } from '../../../lib/supabase'
 
 const UNSPLASH_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY as string | undefined
@@ -221,6 +221,9 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [addingTo, setAddingTo] = useState<string | null>(null)
   const [newFood, setNewFood] = useState({ nombre: '', gramos: '', calorias: '', proteinas: '', carbos: '', grasas: '' })
   const [searchingFoto, setSearchingFoto] = useState<string | null>(null)
+  const [uploadingFoto, setUploadingFoto] = useState<string | null>(null)
+  const [pendingUploadMealId, setPendingUploadMealId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [foodQuery, setFoodQuery] = useState('')
   const [foodResults, setFoodResults] = useState<FoodResult[]>([])
   const [foodSearching, setFoodSearching] = useState(false)
@@ -312,6 +315,35 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
       onToast(`Error: ${e instanceof Error ? e.message : 'desconocido'}`, 'error')
     } finally {
       setSearchingFoto(null)
+    }
+  }
+
+  const handleUploadFoto = (comidaId: string) => {
+    setPendingUploadMealId(comidaId)
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !pendingUploadMealId) return
+    const mealId = pendingUploadMealId
+    setPendingUploadMealId(null)
+    setUploadingFoto(mealId)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `meal-photos/${mealId}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('progress-photos')
+        .upload(path, file, { contentType: file.type, upsert: true })
+      if (uploadError) throw uploadError
+      const { data } = supabase.storage.from('progress-photos').getPublicUrl(path)
+      updateComida(mealId, 'foto_url', data.publicUrl)
+      onToast('Foto subida correctamente', 'success')
+    } catch (err) {
+      onToast(`Error al subir foto: ${err instanceof Error ? err.message : 'desconocido'}`, 'error')
+    } finally {
+      setUploadingFoto(null)
     }
   }
 
@@ -441,13 +473,24 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
                   style={{ color: '#6B7280', border: '1px solid #2a2d3e' }}
                 />
                 <span className="text-xs font-medium" style={{ color: '#F5611A' }}>{calComida} kcal</span>
+                <button
+                  onClick={() => handleUploadFoto(comida.id)}
+                  disabled={uploadingFoto === comida.id}
+                  className="cursor-pointer"
+                  title="Subir foto desde dispositivo"
+                  style={{ color: comida.foto_url ? '#10B981' : '#4B5563' }}
+                >
+                  {uploadingFoto === comida.id
+                    ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} />
+                    : <Upload style={{ width: 14, height: 14 }} />}
+                </button>
                 {UNSPLASH_KEY && (
                   <button
                     onClick={() => handleBuscarFoto(comida)}
                     disabled={searchingFoto === comida.id}
                     className="cursor-pointer"
-                    title="Buscar foto automática"
-                    style={{ color: comida.foto_url ? '#10B981' : '#4B5563' }}
+                    title="Buscar foto automática (Unsplash)"
+                    style={{ color: '#4B5563' }}
                   >
                     {searchingFoto === comida.id
                       ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} />
@@ -645,6 +688,14 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
           Añadir comida
         </button>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
     </div>
   )
 }
