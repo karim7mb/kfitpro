@@ -160,11 +160,18 @@ export async function fetchRegistrosPeso(clienteId: string): Promise<PesoEntry[]
 
   if (error || !data || data.length === 0) return []
 
-  return data.map(r => ({
+  const mapped = data.map(r => ({
     mes: new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
     peso: Number(r.peso_kg),
     fecha: r.fecha,
   }))
+
+  // Deduplicate by date, keeping the last entry per day
+  const seen = new Map<string, PesoEntry>()
+  for (const entry of mapped) {
+    seen.set(entry.fecha, entry)
+  }
+  return Array.from(seen.values())
 }
 
 export async function addRegistroPeso(
