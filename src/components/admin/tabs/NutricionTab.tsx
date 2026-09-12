@@ -363,29 +363,11 @@ async function generatePlanWithGroq(
   const carbsG = Math.round((calorias * cPct) / 4)
   const fatG   = Math.round((calorias * (1 - pPct - cPct)) / 9)
 
-  const systemPrompt = `Eres un nutricionista deportivo experto especializado en planes de alimentación para personas que hacen ejercicio. Creas planes nutricionales detallados, realistas y equilibrados.
+  const systemPrompt = `Nutricionista deportivo. Crea planes en JSON válido únicamente, sin texto extra ni markdown.
+Formato: [{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]}]
+Reglas: alimentos españoles, porciones realistas (máx 250g proteína, máx 200g carbohidrato cocido, máx 40g whey), verduras en comidas principales, macros precisos.`
 
-REGLAS:
-- Usa alimentos comunes de supermercados españoles con nombres en español
-- Porciones realistas: máx 250g proteína animal, máx 200g carbohidrato cocido por comida, máx 40g whey, máx 30g aceite
-- Varía los alimentos entre comidas, incluye verduras en comidas principales
-- Definición/pérdida: sin carbohidratos en la cena, más proteína; volumen: más carbohidratos complejos
-- Desayuno: avena/tostadas/pan + huevos/yogur griego/whey + fruta
-- Merienda: proteína ligera + fruta o tortitas de arroz
-- Los macros de cada alimento deben ser precisos para los gramos indicados
-
-RESPUESTA: JSON válido únicamente, sin markdown ni texto extra. Array de objetos:
-[{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]}]`
-
-  const userPrompt = `Crea un plan nutricional diario para:
-- Sexo: ${sexo}, Edad: ${edad} años, Peso: ${peso} kg, Altura: ${altura} cm
-- Actividad: ${actLabels[actividad]}
-- Objetivo: ${objLabels[objetivo]}
-- Calorías objetivo: ${calorias} kcal/día
-- Macros: ${protG}g proteínas · ${carbsG}g carbohidratos · ${fatG}g grasas
-- Número de comidas: ${numComidas}
-
-Las comidas deben sumar aproximadamente ${calorias} kcal (±5%). Macros exactos para los gramos indicados.`
+  const userPrompt = `Plan para ${sexo} ${edad}a ${peso}kg ${altura}cm, actividad ${actividad}, objetivo ${objetivo}, ${calorias}kcal, ${numComidas} comidas. Macros: ${protG}g prot ${carbsG}g carbs ${fatG}g grasas. Solo JSON.`
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
