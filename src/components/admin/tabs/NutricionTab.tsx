@@ -3,6 +3,7 @@ import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Save, Image, Upload } fr
 import { supabase, fetchPlanNutricional, upsertPlanNutricional, fetchClienteData, fetchRegistrosPeso, type PlanNutricional, type ComidaPlan, type Alimento } from '../../../lib/supabase'
 
 const UNSPLASH_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY as string | undefined
+const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY as string | undefined
 
 const MEAL_EN: Record<string, string> = {
   desayuno: 'breakfast', almuerzo: 'lunch', comida: 'lunch',
@@ -338,6 +339,93 @@ function scaleMealToCalories(alimentos: Alimento[], targetCal: number): Alimento
   return scaled
 }
 
+async function generatePlanWithGroq(
+  sexo: 'hombre' | 'mujer', edad: number, peso: number, altura: number,
+  actividad: Actividad, objetivo: Objetivo, calorias: number, numComidas: number,
+  clienteId: string, entrenadorId: string
+): Promise<PlanNutricional> {
+  if (!GROQ_KEY) throw new Error('Sin API key de Groq')
+
+  const objLabels: Record<Objetivo, string> = {
+    definicion: 'definición muscular (déficit calórico -400 kcal)',
+    volumen: 'volumen muscular (superávit calórico +400 kcal)',
+    mantenimiento: 'mantenimiento del peso',
+    perdida: 'pérdida de grasa (déficit calórico -600 kcal)',
+  }
+  const actLabels: Record<Actividad, string> = {
+    sedentario: 'sedentario (trabajo de escritorio, sin ejercicio)',
+    ligero: 'actividad ligera (ejercicio 1-3 días/semana)',
+    moderado: 'actividad moderada (ejercicio 4-5 días/semana)',
+    activo: 'muy activo (ejercicio 6-7 días/semana o trabajo físico)',
+  }
+  const [pPct, cPct] = MACRO_SPLITS[objetivo]
+  const protG  = Math.round((calorias * pPct) / 4)
+  const carbsG = Math.round((calorias * cPct) / 4)
+  const fatG   = Math.round((calorias * (1 - pPct - cPct)) / 9)
+
+  const systemPrompt = `Eres un nutricionista deportivo experto especializado en planes de alimentación para personas que hacen ejercicio. Creas planes nutricionales detallados, realistas y equilibrados.
+
+REGLAS:
+- Usa alimentos comunes de supermercados españoles con nombres en español
+- Porciones realistas: máx 250g proteína animal, máx 200g carbohidrato cocido por comida, máx 40g whey, máx 30g aceite
+- Varía los alimentos entre comidas, incluye verduras en comidas principales
+- Definición/pérdida: sin carbohidratos en la cena, más proteína; volumen: más carbohidratos complejos
+- Desayuno: avena/tostadas/pan + huevos/yogur griego/whey + fruta
+- Merienda: proteína ligera + fruta o tortitas de arroz
+- Los macros de cada alimento deben ser precisos para los gramos indicados
+
+RESPUESTA: JSON válido únicamente, sin markdown ni texto extra. Array de objetos:
+[{"nombre":"Desayuno","hora":"08:00","alimentos":[{"nombre":"Avena en copos","gramos":80,"calorias":296,"proteinas":10,"carbos":48,"grasas":6}]}]`
+
+  const userPrompt = `Crea un plan nutricional diario para:
+- Sexo: ${sexo}, Edad: ${edad} años, Peso: ${peso} kg, Altura: ${altura} cm
+- Actividad: ${actLabels[actividad]}
+- Objetivo: ${objLabels[objetivo]}
+- Calorías objetivo: ${calorias} kcal/día
+- Macros: ${protG}g proteínas · ${carbsG}g carbohidratos · ${fatG}g grasas
+- Número de comidas: ${numComidas}
+
+Las comidas deben sumar aproximadamente ${calorias} kcal (±5%). Macros exactos para los gramos indicados.`
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+    body: JSON.stringify({
+      model: 'llama-3.1-70b-versatile',
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+      temperature: 0.7,
+      max_tokens: 3000,
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`)
+
+  const data = await res.json()
+  const content: string = data.choices?.[0]?.message?.content ?? ''
+  const jsonMatch = content.match(/\[[\s\S]*\]/)
+  if (!jsonMatch) throw new Error('La IA no devolvió JSON válido')
+
+  type RawMeal = { nombre: string; hora: string; alimentos: { nombre: string; gramos: number; calorias: number; proteinas: number; carbos: number; grasas: number }[] }
+  const mealData: RawMeal[] = JSON.parse(jsonMatch[0])
+
+  const planLabels: Record<Objetivo, string> = { definicion: 'Definición', volumen: 'Volumen', mantenimiento: 'Mantenimiento', perdida: 'Pérdida de grasa' }
+  return {
+    cliente_id: clienteId,
+    entrenador_id: entrenadorId,
+    nombre: `Plan IA ${planLabels[objetivo]} — ${calorias} kcal`,
+    calorias_objetivo: calorias,
+    proteinas_g: protG,
+    carbos_g: carbsG,
+    grasas_g: fatG,
+    comidas: mealData.map(m => ({
+      id: Math.random().toString(36).slice(2),
+      nombre: m.nombre,
+      hora: m.hora,
+      alimentos: m.alimentos.map(a => ({ id: Math.random().toString(36).slice(2), ...a })),
+    })),
+  }
+}
+
 function runGenerator(objetivo: Objetivo, calorias: number, numComidas: number, clienteId: string, entrenadorId: string): PlanNutricional {
   const [pPct, cPct] = MACRO_SPLITS[objetivo]
   const fPct = 1 - pPct - cPct
@@ -412,6 +500,7 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [genEdad, setGenEdad] = useState(25)
   const [genActividad, setGenActividad] = useState<Actividad>('moderado')
   const [genManual, setGenManual] = useState(false)
+  const [genLoading, setGenLoading] = useState(false)
   const [foodQuery, setFoodQuery] = useState('')
   const [foodResults, setFoodResults] = useState<FoodResult[]>([])
   const [foodSearching, setFoodSearching] = useState(false)
@@ -1027,22 +1116,54 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
               </div>
             </div>
 
-            <button
-              onClick={async () => {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-                const generated = runGenerator(genObjetivo, genCalorias, genComidas, clientId, user.id)
-                if (plan?.id) generated.id = plan.id
-                setPlan(generated)
-                setShowGenerator(false)
-                setGenManual(false)
-                onToast('Plan generado. Revísalo y pulsa Guardar.', 'info')
-              }}
-              className="w-full py-3 rounded-xl font-semibold text-white cursor-pointer"
-              style={{ background: '#F5611A' }}
-            >
-              Generar plan — {genCalorias} kcal
-            </button>
+            <div className="space-y-2">
+              {GROQ_KEY && (
+                <button
+                  disabled={genLoading}
+                  onClick={async () => {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) return
+                    setGenLoading(true)
+                    try {
+                      const generated = await generatePlanWithGroq(genSexo, genEdad, genPeso, genAltura, genActividad, genObjetivo, genCalorias, genComidas, clientId, user.id)
+                      if (plan?.id) generated.id = plan.id
+                      setPlan(generated)
+                      setShowGenerator(false)
+                      setGenManual(false)
+                      onToast('Plan IA generado. Revísalo y pulsa Guardar.', 'success')
+                    } catch (e) {
+                      onToast(`Error IA: ${e instanceof Error ? e.message : 'desconocido'}`, 'error')
+                    } finally {
+                      setGenLoading(false)
+                    }
+                  }}
+                  className="w-full py-3 rounded-xl font-semibold text-white cursor-pointer flex items-center justify-center gap-2"
+                  style={{ background: genLoading ? '#7a3010' : '#F5611A', opacity: genLoading ? 0.8 : 1 }}
+                >
+                  {genLoading
+                    ? <><Loader2 className="animate-spin" style={{ width: 16, height: 16 }} /> Generando con IA...</>
+                    : <>✨ Generar con IA — {genCalorias} kcal</>
+                  }
+                </button>
+              )}
+              <button
+                disabled={genLoading}
+                onClick={async () => {
+                  const { data: { user } } = await supabase.auth.getUser()
+                  if (!user) return
+                  const generated = runGenerator(genObjetivo, genCalorias, genComidas, clientId, user.id)
+                  if (plan?.id) generated.id = plan.id
+                  setPlan(generated)
+                  setShowGenerator(false)
+                  setGenManual(false)
+                  onToast('Plan generado. Revísalo y pulsa Guardar.', 'info')
+                }}
+                className="w-full py-2.5 rounded-xl font-medium cursor-pointer"
+                style={{ background: '#1E2130', border: '1px solid #2a2d3e', color: '#9CA3AF', opacity: genLoading ? 0.5 : 1 }}
+              >
+                Generar rápido (sin IA)
+              </button>
+            </div>
           </div>
         </div>
       )}
