@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Save, Image, Upload } from 'lucide-react'
-import { supabase, fetchPlanNutricional, upsertPlanNutricional, type PlanNutricional, type ComidaPlan, type Alimento } from '../../../lib/supabase'
+import { supabase, fetchPlanNutricional, upsertPlanNutricional, fetchClienteData, fetchRegistrosPeso, type PlanNutricional, type ComidaPlan, type Alimento } from '../../../lib/supabase'
 
 const UNSPLASH_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY as string | undefined
 
@@ -276,6 +276,30 @@ function generateMealFoods(tipo: 'desayuno' | 'almuerzo' | 'merienda' | 'cena' |
   return [mk(cf, cf.nombre === 'Avena en copos' ? 50 : 100)]
 }
 
+type Actividad = 'sedentario' | 'ligero' | 'moderado' | 'activo'
+
+const ACTIVIDAD_MULT: Record<Actividad, number> = {
+  sedentario: 1.2,
+  ligero: 1.375,
+  moderado: 1.55,
+  activo: 1.725,
+}
+
+const OBJ_ADJ: Record<Objetivo, number> = {
+  mantenimiento: 0,
+  definicion: -400,
+  volumen: 400,
+  perdida: -600,
+}
+
+function calcTDEE(sexo: 'hombre' | 'mujer', peso: number, altura: number, edad: number, actividad: Actividad, objetivo: Objetivo): number {
+  const bmr = sexo === 'hombre'
+    ? 10 * peso + 6.25 * altura - 5 * edad + 5
+    : 10 * peso + 6.25 * altura - 5 * edad - 161
+  const tdee = bmr * ACTIVIDAD_MULT[actividad]
+  return Math.round((tdee + OBJ_ADJ[objetivo]) / 50) * 50
+}
+
 function scaleMealToCalories(alimentos: Alimento[], targetCal: number): Alimento[] {
   const actualCal = alimentos.reduce((s, a) => s + a.calorias, 0)
   if (actualCal === 0 || Math.abs(actualCal - targetCal) < targetCal * 0.08) return alimentos
@@ -365,6 +389,12 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
   const [genObjetivo, setGenObjetivo] = useState<Objetivo>('definicion')
   const [genCalorias, setGenCalorias] = useState(2000)
   const [genComidas, setGenComidas] = useState(4)
+  const [genSexo, setGenSexo] = useState<'hombre' | 'mujer'>('hombre')
+  const [genAltura, setGenAltura] = useState(175)
+  const [genPeso, setGenPeso] = useState(75)
+  const [genEdad, setGenEdad] = useState(25)
+  const [genActividad, setGenActividad] = useState<Actividad>('moderado')
+  const [genManual, setGenManual] = useState(false)
   const [foodQuery, setFoodQuery] = useState('')
   const [foodResults, setFoodResults] = useState<FoodResult[]>([])
   const [foodSearching, setFoodSearching] = useState(false)
@@ -399,6 +429,22 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
     }, 500)
     return () => clearTimeout(timer)
   }, [foodQuery])
+
+  useEffect(() => {
+    if (!showGenerator) return
+    fetchClienteData(clientId).then(c => {
+      if (!c) return
+      if (c.edad) setGenEdad(c.edad)
+      if (c.pesoInicial) setGenPeso(c.pesoInicial)
+    })
+    fetchRegistrosPeso(clientId).then(pesos => {
+      if (pesos.length > 0) setGenPeso(pesos[pesos.length - 1].peso)
+    })
+  }, [showGenerator, clientId])
+
+  useEffect(() => {
+    if (!genManual) setGenCalorias(calcTDEE(genSexo, genPeso, genAltura, genEdad, genActividad, genObjetivo))
+  }, [genSexo, genPeso, genAltura, genEdad, genActividad, genObjetivo, genManual])
 
   useEffect(() => {
     if (demo) return
@@ -857,10 +903,63 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
       {/* Generator modal */}
       {showGenerator && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setShowGenerator(false)}>
-          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5" style={{ background: '#161820', border: '1px solid #2a2d3e' }} onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-5 overflow-y-auto" style={{ background: '#161820', border: '1px solid #2a2d3e', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
             <div>
               <h2 className="text-lg font-bold text-white">✨ Generar plan</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Se generará un plan base — revísalo y guarda si te convence</p>
+              <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Las calorías se calculan automáticamente con la fórmula Mifflin-St Jeor</p>
+            </div>
+
+            {/* Sexo */}
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Sexo</p>
+              <div className="flex gap-2">
+                {(['hombre', 'mujer'] as const).map(s => (
+                  <button key={s} onClick={() => setGenSexo(s)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer capitalize"
+                    style={{ background: genSexo === s ? 'rgba(245,97,26,0.15)' : '#1E2130', border: `1px solid ${genSexo === s ? '#F5611A' : '#2a2d3e'}`, color: genSexo === s ? '#F5611A' : '#9CA3AF' }}>
+                    {s === 'hombre' ? '♂ Hombre' : '♀ Mujer'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Datos físicos */}
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Datos físicos</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Edad', unit: 'años', val: genEdad, set: setGenEdad, min: 10, max: 100 },
+                  { label: 'Peso', unit: 'kg', val: genPeso, set: setGenPeso, min: 30, max: 300 },
+                  { label: 'Altura', unit: 'cm', val: genAltura, set: setGenAltura, min: 100, max: 250 },
+                ].map(({ label, unit, val, set, min, max }) => (
+                  <div key={label} className="rounded-xl p-3" style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}>
+                    <div className="text-xs mb-1" style={{ color: '#6B7280' }}>{label}</div>
+                    <div className="flex items-baseline gap-1">
+                      <input type="number" value={val} onChange={e => set(Number(e.target.value))} min={min} max={max}
+                        className="w-full bg-transparent text-white font-bold text-lg outline-none" />
+                      <span className="text-xs shrink-0" style={{ color: '#4B5563' }}>{unit}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Actividad */}
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Actividad física</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { key: 'sedentario', label: 'Sedentario', desc: 'Escritorio, sin ejercicio' },
+                  { key: 'ligero',     label: 'Ligero',     desc: '1-3 días/semana' },
+                  { key: 'moderado',   label: 'Moderado',   desc: '4-5 días/semana' },
+                  { key: 'activo',     label: 'Muy activo', desc: '6-7 días/semana' },
+                ] as { key: Actividad; label: string; desc: string }[]).map(a => (
+                  <button key={a.key} onClick={() => setGenActividad(a.key)} className="p-2.5 rounded-xl text-left cursor-pointer"
+                    style={{ background: genActividad === a.key ? 'rgba(245,97,26,0.15)' : '#1E2130', border: `1px solid ${genActividad === a.key ? '#F5611A' : '#2a2d3e'}` }}>
+                    <div className="text-sm font-semibold" style={{ color: genActividad === a.key ? '#F5611A' : 'white' }}>{a.label}</div>
+                    <div className="text-xs" style={{ color: '#4B5563' }}>{a.desc}</div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Objetivo */}
@@ -868,57 +967,45 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
               <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Objetivo</p>
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { key: 'definicion', label: 'Definición', desc: '40% P · 35% C · 25% G' },
-                  { key: 'volumen', label: 'Volumen', desc: '30% P · 50% C · 20% G' },
-                  { key: 'mantenimiento', label: 'Mantenimiento', desc: '30% P · 45% C · 25% G' },
-                  { key: 'perdida', label: 'Pérdida grasa', desc: '42% P · 28% C · 30% G' },
+                  { key: 'definicion',    label: 'Definición',    desc: '-400 kcal del TDEE' },
+                  { key: 'volumen',       label: 'Volumen',       desc: '+400 kcal del TDEE' },
+                  { key: 'mantenimiento', label: 'Mantenimiento', desc: 'TDEE exacto' },
+                  { key: 'perdida',       label: 'Pérdida grasa', desc: '-600 kcal del TDEE' },
                 ] as { key: Objetivo; label: string; desc: string }[]).map(o => (
-                  <button
-                    key={o.key}
-                    onClick={() => setGenObjetivo(o.key)}
-                    className="p-3 rounded-xl text-left cursor-pointer transition-all"
-                    style={{
-                      background: genObjetivo === o.key ? 'rgba(245,97,26,0.15)' : '#1E2130',
-                      border: `1px solid ${genObjetivo === o.key ? '#F5611A' : '#2a2d3e'}`,
-                    }}
-                  >
+                  <button key={o.key} onClick={() => setGenObjetivo(o.key)} className="p-2.5 rounded-xl text-left cursor-pointer"
+                    style={{ background: genObjetivo === o.key ? 'rgba(245,97,26,0.15)' : '#1E2130', border: `1px solid ${genObjetivo === o.key ? '#F5611A' : '#2a2d3e'}` }}>
                     <div className="text-sm font-semibold" style={{ color: genObjetivo === o.key ? '#F5611A' : 'white' }}>{o.label}</div>
-                    <div className="text-xs mt-0.5" style={{ color: '#4B5563' }}>{o.desc}</div>
+                    <div className="text-xs" style={{ color: '#4B5563' }}>{o.desc}</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Calorías */}
+            {/* Calorías calculadas */}
             <div>
-              <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Calorías objetivo</p>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}>
-                <input
-                  type="number"
-                  value={genCalorias}
-                  onChange={e => setGenCalorias(Number(e.target.value))}
-                  className="flex-1 bg-transparent text-white font-bold text-xl outline-none"
-                  min={800} max={6000} step={100}
-                />
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium" style={{ color: '#9CA3AF' }}>Calorías calculadas</p>
+                <button onClick={() => setGenManual(m => !m)} className="text-xs cursor-pointer" style={{ color: genManual ? '#F5611A' : '#4B5563' }}>
+                  {genManual ? 'Usando manual' : 'Editar manualmente'}
+                </button>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: '#1E2130', border: `1px solid ${genManual ? '#F5611A' : '#2a2d3e'}` }}>
+                <input type="number" value={genCalorias} onChange={e => { setGenManual(true); setGenCalorias(Number(e.target.value)) }}
+                  className="flex-1 bg-transparent text-white font-bold text-2xl outline-none" min={800} max={6000} step={50} />
                 <span className="text-sm" style={{ color: '#4B5563' }}>kcal/día</span>
               </div>
+              {!genManual && <p className="text-xs mt-1" style={{ color: '#4B5563' }}>TDEE calculado automáticamente · ajustado por objetivo</p>}
             </div>
 
-            {/* Número de comidas */}
+            {/* Comidas */}
             <div>
               <p className="text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Número de comidas</p>
               <div className="flex gap-2">
                 {[3, 4, 5].map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setGenComidas(n)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
-                    style={{
-                      background: genComidas === n ? 'rgba(245,97,26,0.15)' : '#1E2130',
-                      border: `1px solid ${genComidas === n ? '#F5611A' : '#2a2d3e'}`,
-                      color: genComidas === n ? '#F5611A' : '#9CA3AF',
-                    }}
-                  >{n} comidas</button>
+                  <button key={n} onClick={() => setGenComidas(n)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: genComidas === n ? 'rgba(245,97,26,0.15)' : '#1E2130', border: `1px solid ${genComidas === n ? '#F5611A' : '#2a2d3e'}`, color: genComidas === n ? '#F5611A' : '#9CA3AF' }}>
+                    {n} comidas
+                  </button>
                 ))}
               </div>
             </div>
@@ -931,12 +1018,13 @@ export default function NutricionTab({ clientId, onToast }: NutricionTabProps) {
                 if (plan?.id) generated.id = plan.id
                 setPlan(generated)
                 setShowGenerator(false)
+                setGenManual(false)
                 onToast('Plan generado. Revísalo y pulsa Guardar.', 'info')
               }}
               className="w-full py-3 rounded-xl font-semibold text-white cursor-pointer"
               style={{ background: '#F5611A' }}
             >
-              Generar plan
+              Generar plan — {genCalorias} kcal
             </button>
           </div>
         </div>
