@@ -64,6 +64,8 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [hidratacion, setHidratacion] = useState(0)
+  const [litrosInput, setLitrosInput] = useState<number | ''>('')
+  const [pasos, setPasos] = useState<number | ''>('')
   const [horas_sueno, setHorasSueno] = useState<number | ''>('')
   const [dolor, setDolor] = useState<number>(5)
   const [todayDia, setTodayDia] = useState<DiaRutina | null>(null)
@@ -113,6 +115,8 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
       if (todayProg) {
         setProgreso(todayProg)
         setHidratacion(todayProg.hidratacion ?? 0)
+        setLitrosInput(todayProg.litros ?? todayProg.hidratacion ? (todayProg.hidratacion ?? 0) * 0.25 : '')
+        setPasos(todayProg.pasos ?? '')
         setHorasSueno(todayProg.horas_sueno ?? '')
         setDolor(todayProg.dolor_corporal ?? 5)
       }
@@ -175,6 +179,8 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         cliente_id: clienteId,
         fecha: today(),
         hidratacion,
+        litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
+        pasos: pasos !== '' ? Number(pasos) : undefined,
         horas_sueno: horas_sueno !== '' ? Number(horas_sueno) : undefined,
         dolor_corporal: dolor,
       }
@@ -220,12 +226,21 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         </div>
         <RecuperacionBlock
           hidratacion={hidratacion} setHidratacion={setHidratacion}
+          litrosInput={litrosInput} setLitrosInput={setLitrosInput}
+          pasos={pasos} setPasos={setPasos}
           horas_sueno={horas_sueno} setHorasSueno={setHorasSueno}
           dolor={dolor} setDolor={setDolor}
           onSave={async () => {
             if (isDemo) return
             try {
-              await upsertProgresoDiario({ cliente_id: clienteId, fecha: today(), hidratacion, horas_sueno: horas_sueno !== '' ? Number(horas_sueno) : undefined, dolor_corporal: dolor })
+              await upsertProgresoDiario({
+                cliente_id: clienteId, fecha: today(),
+                hidratacion,
+                litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
+                pasos: pasos !== '' ? Number(pasos) : undefined,
+                horas_sueno: horas_sueno !== '' ? Number(horas_sueno) : undefined,
+                dolor_corporal: dolor,
+              })
               onToast('Recuperación guardada', 'success')
             } catch { onToast('Error', 'error') }
           }}
@@ -354,6 +369,8 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
 
       <RecuperacionBlock
         hidratacion={hidratacion} setHidratacion={setHidratacion}
+        litrosInput={litrosInput} setLitrosInput={setLitrosInput}
+        pasos={pasos} setPasos={setPasos}
         horas_sueno={horas_sueno} setHorasSueno={setHorasSueno}
         dolor={dolor} setDolor={setDolor}
         onSave={() => Promise.resolve()}
@@ -393,6 +410,10 @@ function SemanaHeader({ semana, descripcion }: { semana: number; descripcion: st
 interface RecuperacionBlockProps {
   hidratacion: number
   setHidratacion: (n: number) => void
+  litrosInput: number | ''
+  setLitrosInput: (n: number | '') => void
+  pasos: number | ''
+  setPasos: (n: number | '') => void
   horas_sueno: number | ''
   setHorasSueno: (n: number | '') => void
   dolor: number
@@ -402,7 +423,25 @@ interface RecuperacionBlockProps {
   inline?: boolean
 }
 
-function RecuperacionBlock({ hidratacion, setHidratacion, horas_sueno, setHorasSueno, dolor, setDolor, onSave, saving, inline }: RecuperacionBlockProps) {
+const PASOS_META = 10000
+
+function RecuperacionBlock({ hidratacion, setHidratacion, litrosInput, setLitrosInput, pasos, setPasos, horas_sueno, setHorasSueno, dolor, setDolor, onSave, saving, inline }: RecuperacionBlockProps) {
+  function handleVasos(vasos: number) {
+    setHidratacion(vasos)
+    setLitrosInput(parseFloat((vasos * 0.25).toFixed(2)))
+  }
+
+  function handleLitros(val: string) {
+    if (val === '') { setLitrosInput(''); return }
+    const l = parseFloat(val)
+    if (isNaN(l)) return
+    setLitrosInput(l)
+    setHidratacion(Math.round(l / 0.25))
+  }
+
+  const pasosNum = pasos !== '' ? Number(pasos) : 0
+  const pasosPct = Math.min(100, Math.round((pasosNum / PASOS_META) * 100))
+
   return (
     <div className="rounded-2xl p-4 space-y-4" style={{ background: '#1A1D2E', border: '1px solid #2a2d3e' }}>
       <p className="text-white text-sm font-semibold flex items-center gap-2"><Zap size={14} style={{ color: '#F5611A' }} /> Recuperación</p>
@@ -413,11 +452,11 @@ function RecuperacionBlock({ hidratacion, setHidratacion, horas_sueno, setHorasS
           <span className="text-gray-400 text-xs flex items-center gap-1"><Droplets size={12} /> Hidratación</span>
           <span className="text-xs font-mono text-white">{hidratacion} vasos</span>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap mb-2">
           {Array.from({ length: 8 }, (_, i) => (
             <button
               key={i}
-              onClick={() => setHidratacion(hidratacion === i + 1 ? i : i + 1)}
+              onClick={() => handleVasos(hidratacion === i + 1 ? i : i + 1)}
               className="w-8 h-8 rounded-full text-xs cursor-pointer transition-all"
               style={{ background: i < hidratacion ? '#3B82F6' : '#262940', color: i < hidratacion ? 'white' : '#9ca3af' }}
             >
@@ -425,6 +464,52 @@ function RecuperacionBlock({ hidratacion, setHidratacion, horas_sueno, setHorasS
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            max={10}
+            step={0.25}
+            placeholder="0.00"
+            value={litrosInput}
+            onChange={e => handleLitros(e.target.value)}
+            className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
+            style={{ background: '#262940', border: '1px solid #2a2d3e' }}
+          />
+          <span className="text-gray-400 text-xs">litros · 1 vaso = 0.25 L</span>
+        </div>
+      </div>
+
+      {/* Steps */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-gray-400 text-xs flex items-center gap-1">👟 Pasos diarios</span>
+          <span className="text-xs font-mono" style={{ color: pasosPct >= 100 ? '#10B981' : pasosPct >= 50 ? '#F59E0B' : '#9ca3af' }}>
+            {pasosNum > 0 ? pasosNum.toLocaleString('es-ES') : '—'} / {PASOS_META.toLocaleString('es-ES')}
+          </span>
+        </div>
+        <input
+          type="number"
+          min={0}
+          max={50000}
+          step={100}
+          placeholder="10000"
+          value={pasos}
+          onChange={e => setPasos(e.target.value === '' ? '' : Number(e.target.value))}
+          className="w-full rounded-xl px-3 py-1.5 text-sm text-white outline-none"
+          style={{ background: '#262940', border: '1px solid #2a2d3e' }}
+        />
+        {pasosNum > 0 && (
+          <div className="mt-2">
+            <div className="w-full rounded-full h-1.5" style={{ background: '#2a2d3e' }}>
+              <div
+                className="h-1.5 rounded-full transition-all"
+                style={{ width: `${pasosPct}%`, background: pasosPct >= 100 ? '#10B981' : '#F59E0B' }}
+              />
+            </div>
+            <p className="text-gray-600 text-xs mt-0.5">{pasosPct}% del objetivo</p>
+          </div>
+        )}
       </div>
 
       {/* Sleep */}

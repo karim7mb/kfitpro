@@ -684,6 +684,8 @@ export interface ProgresoDiario {
   fecha: string
   peso_corporal?: number
   hidratacion?: number
+  litros?: number
+  pasos?: number
   horas_sueno?: number
   dolor_corporal?: number
   prs?: Record<string, { peso: number; reps: number; fecha: string }>
@@ -716,6 +718,8 @@ export async function upsertProgresoDiario(progreso: ProgresoDiario): Promise<vo
     fecha: progreso.fecha,
     ...(progreso.peso_corporal != null && { peso_corporal: progreso.peso_corporal }),
     ...(progreso.hidratacion != null && { hidratacion: progreso.hidratacion }),
+    ...(progreso.litros != null && { litros: progreso.litros }),
+    ...(progreso.pasos != null && { pasos: progreso.pasos }),
     ...(progreso.horas_sueno != null && { horas_sueno: progreso.horas_sueno }),
     ...(progreso.dolor_corporal != null && { dolor_corporal: progreso.dolor_corporal }),
     ...(progreso.prs && { prs: progreso.prs }),
