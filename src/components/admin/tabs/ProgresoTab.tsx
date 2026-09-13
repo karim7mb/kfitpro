@@ -50,7 +50,7 @@ export default function ProgresoTab({ clienteId, isDemo, onToast }: ProgresoTabP
         fetchRegistrosPeso(clienteId),
       ])
       setProgresos(prog)
-      setPesos(ps)
+      setPesos(ps.filter((p): p is { mes: string; peso: number; fecha: string } => !!p.fecha))
     } finally {
       setLoading(false)
     }
