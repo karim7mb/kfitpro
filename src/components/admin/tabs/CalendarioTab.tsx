@@ -221,7 +221,7 @@ function DayCell({ day, onClick, isSelected }: { day: CalDay; onClick: () => voi
       {isDone && <CheckCircle2 size={14} style={{ color: '#10B981' }} />}
       {!isDone && isTraining && day.isToday && <Clock size={12} style={{ color: '#F5611A' }} />}
       {!isDone && isTraining && !day.isToday && (
-        <div className="w-1.5 h-1.5 rounded-full" style={{ background: day.isPast ? '#ef444466' : '#F5611A66' }} />
+        <div className="w-2.5 h-2.5 rounded-full" style={{ background: day.isPast ? '#ef4444aa' : '#F5611A' }} />
       )}
     </button>
   )
