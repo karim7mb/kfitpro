@@ -65,7 +65,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
   const [saving, setSaving] = useState(false)
   const [hidratacion, setHidratacion] = useState(0)
   const [litrosInput, setLitrosInput] = useState<number | ''>('')
-  const [pasos, setPasos] = useState<number | ''>('')
+  const [pasos, setPasos] = useState<number>(0)
   const [horas_sueno, setHorasSueno] = useState<number | ''>('')
   const [dolor, setDolor] = useState<number>(5)
   const [todayDia, setTodayDia] = useState<DiaRutina | null>(null)
@@ -116,7 +116,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         setProgreso(todayProg)
         setHidratacion(todayProg.hidratacion ?? 0)
         setLitrosInput(todayProg.litros ?? todayProg.hidratacion ? (todayProg.hidratacion ?? 0) * 0.25 : '')
-        setPasos(todayProg.pasos ?? '')
+        setPasos(todayProg.pasos ?? 0)
         setHorasSueno(todayProg.horas_sueno ?? '')
         setDolor(todayProg.dolor_corporal ?? 5)
       }
@@ -180,7 +180,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         fecha: today(),
         hidratacion,
         litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
-        pasos: pasos !== '' ? Number(pasos) : undefined,
+        pasos: pasos > 0 ? pasos : undefined,
         horas_sueno: horas_sueno !== '' ? Number(horas_sueno) : undefined,
         dolor_corporal: dolor,
       }
@@ -237,7 +237,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
                 cliente_id: clienteId, fecha: today(),
                 hidratacion,
                 litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
-                pasos: pasos !== '' ? Number(pasos) : undefined,
+                pasos: pasos > 0 ? pasos : undefined,
                 horas_sueno: horas_sueno !== '' ? Number(horas_sueno) : undefined,
                 dolor_corporal: dolor,
               })
@@ -412,8 +412,8 @@ interface RecuperacionBlockProps {
   setHidratacion: (n: number) => void
   litrosInput: number | ''
   setLitrosInput: (n: number | '') => void
-  pasos: number | ''
-  setPasos: (n: number | '') => void
+  pasos: number
+  setPasos: (n: number) => void
   horas_sueno: number | ''
   setHorasSueno: (n: number | '') => void
   dolor: number
@@ -482,34 +482,24 @@ function RecuperacionBlock({ hidratacion, setHidratacion, litrosInput, setLitros
 
       {/* Steps */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-xs flex items-center gap-1">👟 Pasos diarios</span>
+        <div className="flex justify-between mb-2">
+          <span className="text-gray-400 text-xs">👟 Pasos diarios</span>
           <span className="text-xs font-mono" style={{ color: pasosPct >= 100 ? '#10B981' : pasosPct >= 50 ? '#F59E0B' : '#9ca3af' }}>
-            {pasosNum > 0 ? pasosNum.toLocaleString('es-ES') : '—'} / {PASOS_META.toLocaleString('es-ES')}
+            {pasosNum.toLocaleString('es-ES')} / {PASOS_META.toLocaleString('es-ES')}
           </span>
         </div>
         <input
-          type="number"
+          type="range"
           min={0}
-          max={50000}
+          max={20000}
           step={100}
-          placeholder="10000"
-          value={pasos}
-          onChange={e => setPasos(e.target.value === '' ? '' : Number(e.target.value))}
-          className="w-full rounded-xl px-3 py-1.5 text-sm text-white outline-none"
-          style={{ background: '#262940', border: '1px solid #2a2d3e' }}
+          value={pasosNum}
+          onChange={e => setPasos(Number(e.target.value))}
+          className="w-full accent-yellow-500"
         />
-        {pasosNum > 0 && (
-          <div className="mt-2">
-            <div className="w-full rounded-full h-1.5" style={{ background: '#2a2d3e' }}>
-              <div
-                className="h-1.5 rounded-full transition-all"
-                style={{ width: `${pasosPct}%`, background: pasosPct >= 100 ? '#10B981' : '#F59E0B' }}
-              />
-            </div>
-            <p className="text-gray-600 text-xs mt-0.5">{pasosPct}% del objetivo</p>
-          </div>
-        )}
+        <div className="flex justify-between text-xs text-gray-600 mt-1">
+          <span>0</span><span>10.000</span><span>20.000</span>
+        </div>
       </div>
 
       {/* Sleep */}
