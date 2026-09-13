@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, Circle, ChevronDown, ChevronUp, Save, Dumbbell, Moon, Droplets, Zap } from 'lucide-react'
 import {
   fetchRutina4Semanas, fetchSesionesLog, upsertSesionLog, upsertProgresoDiario, fetchProgresoDiario,
-  isDemoMode,
   type Rutina4Semanas, type DiaRutina, type SesionLog, type SerieLog, type ProgresoDiario,
 } from '../../../lib/supabase'
 

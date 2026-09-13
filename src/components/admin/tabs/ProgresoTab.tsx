@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { TrendingUp, Trophy, Star, Plus, X } from 'lucide-react'
+import { TrendingUp, Trophy, Star, Plus } from 'lucide-react'
 import {
   fetchProgresoDiario, upsertProgresoDiario, fetchRegistrosPeso, addRegistroPeso,
-  isDemoMode,
   type ProgresoDiario,
 } from '../../../lib/supabase'
 
@@ -155,7 +154,7 @@ export default function ProgresoTab({ clienteId, isDemo, onToast }: ProgresoTabP
     return <div className="flex items-center justify-center h-48 text-gray-400 text-sm">Cargando progreso…</div>
   }
 
-  const pesoData = pesos.slice(-12)
+  const pesoData = pesos.filter((p): p is { mes: string; peso: number; fecha: string } => !!p.fecha).slice(-12)
   const pesoMin = pesoData.length ? Math.min(...pesoData.map(p => p.peso)) - 2 : 50
   const pesoMax = pesoData.length ? Math.max(...pesoData.map(p => p.peso)) + 2 : 100
 
