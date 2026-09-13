@@ -165,7 +165,7 @@ export default function ProgresoTab({ clienteId, isDemo, onToast }: ProgresoTabP
       <Section title="Peso corporal" icon={<TrendingUp size={14} style={{ color: '#F5611A' }} />}>
         {pesoData.length > 0 ? (
           <div className="overflow-x-auto">
-            <svg viewBox={`0 0 ${Math.max(300, pesoData.length * 40)} 120`} className="w-full" style={{ minWidth: 300 }}>
+            <svg viewBox={`0 0 ${Math.max(300, pesoData.length * 40)} 120`} className="w-full" style={{ minWidth: 300, maxHeight: 140 }}>
               <defs>
                 <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#F5611A" stopOpacity="0.3" />
