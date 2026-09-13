@@ -14,13 +14,14 @@ interface CalendarioTabProps {
 const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 function today(): string {
-  return new Date().toISOString().split('T')[0]
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function addDays(base: string, n: number): string {
-  const d = new Date(base + 'T00:00:00')
+  const d = new Date(base + 'T12:00:00') // noon evita desfase UTC en cualquier zona horaria
   d.setDate(d.getDate() + n)
-  return d.toISOString().split('T')[0]
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function getDayOfWeekMon(dateStr: string): number {
