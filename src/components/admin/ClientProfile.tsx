@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Dumbbell, Weight, Apple, MessageSquare, FileText, Loader2 } from 'lucide-react'
+import { ArrowLeft, Dumbbell, Weight, Apple, MessageSquare, FileText, Loader2, CalendarDays, TrendingUp, Sun } from 'lucide-react'
 import { demoClients, demoRutina, demoPeso, demoNutricion } from '../../data/demo'
 import {
   fetchClienteData, updatePesoObjetivo,
@@ -13,8 +13,11 @@ import PesoTab from './tabs/PesoTab'
 import NutricionTab from './tabs/NutricionTab'
 import ChatTab from './tabs/ChatTab'
 import ReportesTab from './tabs/ReportesTab'
+import HoyTab from './tabs/HoyTab'
+import CalendarioTab from './tabs/CalendarioTab'
+import ProgresoTab from './tabs/ProgresoTab'
 
-type Tab = 'datos' | 'rutina' | 'peso' | 'nutricion' | 'chat' | 'reportes'
+type Tab = 'datos' | 'hoy' | 'rutina' | 'calendario' | 'progreso' | 'peso' | 'nutricion' | 'chat' | 'reportes'
 
 interface ClientProfileProps {
   clientId: string
@@ -24,7 +27,10 @@ interface ClientProfileProps {
 
 const tabs: { id: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
   { id: 'datos', label: 'Datos', icon: ({ style }) => <span style={style}>👤</span> },
+  { id: 'hoy', label: 'Hoy', icon: Sun },
   { id: 'rutina', label: 'Rutina', icon: Dumbbell },
+  { id: 'calendario', label: 'Calendario', icon: CalendarDays },
+  { id: 'progreso', label: 'Progreso', icon: TrendingUp },
   { id: 'peso', label: 'Peso', icon: Weight },
   { id: 'nutricion', label: 'Nutrición', icon: Apple },
   { id: 'chat', label: 'Chat', icon: MessageSquare },
@@ -493,7 +499,10 @@ export default function ClientProfile({ clientId, onBack, onToast }: ClientProfi
         </div>
       )}
 
+      {activeTab === 'hoy' && <HoyTab clienteId={clientId} isDemo={!isReal} onToast={onToast} />}
       {activeTab === 'rutina' && <RutinaTab rutina={demoRutina} clientId={isReal ? clientId : undefined} onToast={onToast} />}
+      {activeTab === 'calendario' && <CalendarioTab clienteId={clientId} isDemo={!isReal} onToast={onToast} />}
+      {activeTab === 'progreso' && <ProgresoTab clienteId={clientId} isDemo={!isReal} onToast={onToast} />}
       {activeTab === 'peso' && <PesoTab pesoData={demoPeso} clientId={isReal ? clientId : undefined} onToast={onToast} />}
       {activeTab === 'nutricion' && <NutricionTab clientId={clientId} onToast={onToast} />}
       {activeTab === 'chat' && (

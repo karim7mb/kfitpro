@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, Plus, Loader2, CheckCircle, X, ExternalLink, Play } from 'lucide-react'
 import { demoRutina } from '../../../data/demo'
-import { fetchRutina, upsertRutina, fetchPerfilEntrenamiento, supabase, type RutinaData, type DiaRutina } from '../../../lib/supabase'
+import { fetchRutina4Semanas, upsertRutina4Semanas, fetchPerfilEntrenamiento, supabase, type RutinaData, type DiaRutina } from '../../../lib/supabase'
 
 interface RutinaTabProps {
   rutina: RutinaData
@@ -236,7 +236,7 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
 
   useEffect(() => {
     if (!clientId) { setRealRutina(null); return }
-    fetchRutina(clientId).then(r => setRealRutina(r))
+    fetchRutina4Semanas(clientId).then(r => setRealRutina(r))
   }, [clientId])
 
   const handleAssign = async (plantilla: typeof PLANTILLAS[0]) => {
@@ -246,13 +246,13 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Sin sesión')
-      await upsertRutina(clientId, user.id, {
+      await upsertRutina4Semanas(clientId, user.id, {
         nombre: plantilla.nombre,
         semana_actual: 1,
         activa: true,
         dias: plantilla.dias,
       })
-      const updated = await fetchRutina(clientId)
+      const updated = await fetchRutina4Semanas(clientId)
       setRealRutina(updated)
       onToast(`Rutina "${plantilla.nombre}" asignada correctamente`, 'success')
     } catch {
@@ -330,7 +330,7 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
                 try {
                   const perfil = await fetchPerfilEntrenamiento(clientId)
                   const clienteData = await import('../../../lib/supabase').then(m => m.fetchClienteData(clientId))
-                  const res = await fetch('/api/generate-routine', {
+                  const res = await fetch('/api/generate-4week-plan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -339,20 +339,27 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
                       tiempoEntrenoSemana: perfil?.tiempoEntrenoSemana ?? '3-4h',
                       objetivo: clienteData?.objetivo ?? 'mantenimiento',
                       lesiones: perfil?.lesiones ?? [],
-                      nombre: `Rutina IA — ${clienteData?.objetivo ?? 'Entrenamiento'}`,
+                      nombre: `Plan 4 Semanas — ${clienteData?.objetivo ?? 'Entrenamiento'}`,
                     }),
                   })
                   const data = await res.json()
                   if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`)
-                  const dias: DiaRutina[] = data.dias.map((d: DiaRutina, i: number) => ({
+                  const dias: DiaRutina[] = (data.dias ?? data.semanas?.[0]?.dias ?? []).map((d: DiaRutina, i: number) => ({
                     ...d,
                     id: d.id ?? `d${i}`,
                     ejercicios: d.ejercicios.map((e, j) => ({ ...e, id: e.id ?? `e${i}-${j}` })),
                   }))
-                  await upsertRutina(clientId, user.id, { nombre: data.nombre, semana_actual: 1, activa: true, dias })
-                  const updated = await fetchRutina(clientId)
+                  await upsertRutina4Semanas(clientId, user.id, {
+                    nombre: data.nombre,
+                    semana_actual: 1,
+                    activa: true,
+                    dias,
+                    semanas: data.semanas,
+                    fecha_inicio: data.fecha_inicio,
+                  })
+                  const updated = await fetchRutina4Semanas(clientId)
                   setRealRutina(updated)
-                  onToast('✨ Rutina IA generada. ¡Revísala!', 'success')
+                  onToast('✨ Plan 4 semanas generado. ¡Revísalo!', 'success')
                 } catch (e) {
                   onToast(`Error IA: ${e instanceof Error ? e.message : 'desconocido'}`, 'error')
                 } finally {

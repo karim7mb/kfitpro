@@ -547,3 +547,184 @@ export async function updatePerfilEntrenamiento(clienteId: string, perfil: Perfi
     .eq('usuario_id', clienteId)
   if (error) throw error
 }
+
+// ─── 4-WEEK PLAN ────────────────────────────────────────────────────────────
+
+export interface SemanaRutina {
+  semana: number
+  descripcion: string
+  dias: DiaRutina[]
+}
+
+export interface Rutina4Semanas {
+  id?: string
+  nombre: string
+  semana_actual: number
+  activa: boolean
+  fecha_inicio?: string
+  dias: DiaRutina[]
+  semanas?: SemanaRutina[]
+}
+
+export async function fetchRutina4Semanas(clienteId: string): Promise<Rutina4Semanas | null> {
+  const { data, error } = await supabase
+    .from('rutinas')
+    .select('id, nombre, semana_actual, activa, dias, semanas, fecha_inicio')
+    .eq('cliente_id', clienteId)
+    .eq('activa', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return {
+    id: data.id,
+    nombre: data.nombre,
+    semana_actual: data.semana_actual ?? 1,
+    activa: data.activa,
+    dias: (data.dias as DiaRutina[]) ?? [],
+    semanas: (data.semanas as SemanaRutina[]) ?? undefined,
+    fecha_inicio: data.fecha_inicio ?? undefined,
+  }
+}
+
+export async function upsertRutina4Semanas(
+  clienteId: string,
+  entrenadorId: string,
+  rutina: Omit<Rutina4Semanas, 'id'>
+): Promise<string | undefined> {
+  await supabase.from('rutinas').update({ activa: false }).eq('cliente_id', clienteId)
+
+  const { data, error } = await supabase
+    .from('rutinas')
+    .insert({
+      cliente_id: clienteId,
+      entrenador_id: entrenadorId,
+      nombre: rutina.nombre,
+      semana_actual: rutina.semana_actual,
+      activa: true,
+      dias: rutina.dias,
+      semanas: rutina.semanas ?? null,
+      fecha_inicio: rutina.fecha_inicio ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw error
+  return data?.id
+}
+
+// ─── SESSION LOG ─────────────────────────────────────────────────────────────
+
+export interface SerieLog {
+  serie: number
+  reps?: number
+  peso?: number
+  completada: boolean
+}
+
+export interface SesionLog {
+  id?: string
+  cliente_id: string
+  rutina_id?: string
+  semana_num: number
+  dia_id: string
+  fecha: string
+  completada: boolean
+  sensacion?: 'facil' | 'justo' | 'brutal'
+  notas?: string
+  series_completadas: Record<string, SerieLog[]>
+}
+
+export async function fetchSesionesLog(clienteId: string, rutinaId?: string): Promise<SesionLog[]> {
+  let q = supabase
+    .from('sesiones_log')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('fecha', { ascending: false })
+    .limit(60)
+
+  if (rutinaId) q = q.eq('rutina_id', rutinaId)
+
+  const { data, error } = await q
+  if (error || !data) return []
+  return data as SesionLog[]
+}
+
+export async function upsertSesionLog(sesion: SesionLog): Promise<void> {
+  const payload = {
+    cliente_id: sesion.cliente_id,
+    rutina_id: sesion.rutina_id ?? null,
+    semana_num: sesion.semana_num,
+    dia_id: sesion.dia_id,
+    fecha: sesion.fecha,
+    completada: sesion.completada,
+    sensacion: sesion.sensacion ?? null,
+    notas: sesion.notas ?? null,
+    series_completadas: sesion.series_completadas,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (sesion.id) {
+    const { error } = await supabase.from('sesiones_log').update(payload).eq('id', sesion.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('sesiones_log')
+      .upsert(payload, { onConflict: 'cliente_id,fecha,dia_id' })
+    if (error) throw error
+  }
+}
+
+// ─── DAILY PROGRESS ──────────────────────────────────────────────────────────
+
+export interface ProgresoDiario {
+  id?: string
+  cliente_id: string
+  fecha: string
+  peso_corporal?: number
+  hidratacion?: number
+  horas_sueno?: number
+  dolor_corporal?: number
+  prs?: Record<string, { peso: number; reps: number; fecha: string }>
+  victorias?: string[]
+  revision_semanal?: {
+    energia: number
+    sueno: number
+    estres: number
+    adherencia: number
+    notas: string
+    feedback_ia?: string
+  }
+}
+
+export async function fetchProgresoDiario(clienteId: string, limit = 30): Promise<ProgresoDiario[]> {
+  const { data, error } = await supabase
+    .from('progreso_diario')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('fecha', { ascending: true })
+    .limit(limit)
+
+  if (error || !data) return []
+  return data as ProgresoDiario[]
+}
+
+export async function upsertProgresoDiario(progreso: ProgresoDiario): Promise<void> {
+  const payload = {
+    cliente_id: progreso.cliente_id,
+    fecha: progreso.fecha,
+    ...(progreso.peso_corporal != null && { peso_corporal: progreso.peso_corporal }),
+    ...(progreso.hidratacion != null && { hidratacion: progreso.hidratacion }),
+    ...(progreso.horas_sueno != null && { horas_sueno: progreso.horas_sueno }),
+    ...(progreso.dolor_corporal != null && { dolor_corporal: progreso.dolor_corporal }),
+    ...(progreso.prs && { prs: progreso.prs }),
+    ...(progreso.victorias && { victorias: progreso.victorias }),
+    ...(progreso.revision_semanal && { revision_semanal: progreso.revision_semanal }),
+  }
+
+  const { error } = await supabase
+    .from('progreso_diario')
+    .upsert(payload, { onConflict: 'cliente_id,fecha' })
+  if (error) throw error
+}
