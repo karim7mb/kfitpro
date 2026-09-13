@@ -439,9 +439,6 @@ function RecuperacionBlock({ hidratacion, setHidratacion, litrosInput, setLitros
     setHidratacion(Math.round(l / 0.25))
   }
 
-  const pasosNum = pasos !== '' ? Number(pasos) : 0
-  const pasosPct = Math.min(100, Math.round((pasosNum / PASOS_META) * 100))
-
   return (
     <div className="rounded-2xl p-4 space-y-4" style={{ background: '#1A1D2E', border: '1px solid #2a2d3e' }}>
       <p className="text-white text-sm font-semibold flex items-center gap-2"><Zap size={14} style={{ color: '#F5611A' }} /> Recuperación</p>
@@ -468,7 +465,7 @@ function RecuperacionBlock({ hidratacion, setHidratacion, litrosInput, setLitros
           <input
             type="number"
             min={0}
-            max={10}
+            max={4}
             step={0.25}
             placeholder="0.00"
             value={litrosInput}
@@ -484,8 +481,8 @@ function RecuperacionBlock({ hidratacion, setHidratacion, litrosInput, setLitros
       <div>
         <div className="flex justify-between mb-2">
           <span className="text-gray-400 text-xs">👟 Pasos diarios</span>
-          <span className="text-xs font-mono" style={{ color: pasosPct >= 100 ? '#10B981' : pasosPct >= 50 ? '#F59E0B' : '#9ca3af' }}>
-            {pasosNum.toLocaleString('es-ES')} / {PASOS_META.toLocaleString('es-ES')}
+          <span className="text-xs font-mono" style={{ color: pasos >= PASOS_META ? '#10B981' : pasos >= 5000 ? '#F59E0B' : '#9ca3af' }}>
+            {pasos.toLocaleString('es-ES')}
           </span>
         </div>
         <input
@@ -493,12 +490,12 @@ function RecuperacionBlock({ hidratacion, setHidratacion, litrosInput, setLitros
           min={0}
           max={20000}
           step={100}
-          value={pasosNum}
+          value={pasos}
           onChange={e => setPasos(Number(e.target.value))}
-          className="w-full accent-yellow-500"
+          className="w-full accent-orange-500"
         />
         <div className="flex justify-between text-xs text-gray-600 mt-1">
-          <span>0</span><span>10.000</span><span>20.000</span>
+          <span>0</span><span>20.000</span>
         </div>
       </div>
 
