@@ -216,7 +216,7 @@ const MEAL_TEMPLATES: Record<number, { nombre: string; hora: string; pct: number
   ],
 }
 
-const PROT_MORNING  = ['Claras de huevo', 'Huevo entero', 'Yogur griego 0%', 'Proteína whey']
+const PROT_MORNING  = ['Claras de huevo', 'Huevo entero', 'Yogur griego 0%', 'Proteína whey', 'Requesón', 'Queso cottage']
 const PROT_MAIN     = ['Pechuga de pollo', 'Pavo (pechuga)', 'Salmón', 'Atún en agua', 'Merluza', 'Ternera magra', 'Gambas']
 const CARB_MORNING  = ['Avena en copos', 'Pan integral', 'Tortita de arroz']
 const CARB_MAIN     = ['Arroz integral cocido', 'Arroz blanco cocido', 'Patata cocida', 'Pasta cocida', 'Patata dulce / Boniato', 'Quinoa cocida']

@@ -66,6 +66,26 @@ Reglas de porciones: máx 220g proteína animal por comida, máx 180g carbohidra
 Definición/pérdida: sin carbohidratos en la cena. Volumen: carbohidratos en todas las comidas.
 Siempre incluye verduras en comidas principales. Los macros deben ser exactos para los gramos indicados.
 Respeta ESTRICTAMENTE las alergias e intolerancias del cliente (no incluyas esos alimentos bajo ningún concepto).
+
+DESAYUNOS VALIDADOS (úsalos como referencia para el desayuno, especialmente en objetivo pérdida/definición):
+Categoría A — Alta proteína + fibra, bajo en calorías (PRIORIZAR para pérdida de grasa):
+• Tortilla de claras con espinacas y tomate — 160 kcal, 22g prot
+• Yogur griego + frutos rojos + semillas de chía — 180 kcal, 18g prot
+• Revuelto de huevo + verduras sin pan — 220 kcal, 18g prot
+• Bol de skyr + granola casera + kiwi — 210 kcal, 17g prot
+• Batido verde proteico (espinacas + proteína + leche vegetal) — 200 kcal, 16g prot
+• Tostada integral + salmón ahumado + pepino — 240 kcal, 22g prot
+• Omelette de claras (5 claras) + verduras + especias — 200 kcal, 28g prot
+• Requesón/queso cottage + fruta + semillas chía — 240 kcal, 24g prot
+• Huevos con champiñones salteados (3 huevos) — 250 kcal, 25g prot
+Categoría B — Equilibrados y saciantes (usar en volumen/mantenimiento):
+• Tostada integral + aguacate + huevo pochado — 280 kcal, 14g prot
+• Avena con leche desnatada + plátano pequeño — 280 kcal, 14g prot
+• Wrap integral + pavo + rúcula + tomate — 300 kcal, 22g prot
+• Tortilla con atún al natural + verduras — 320 kcal, 30g prot
+• Tortilla con pollo a la plancha + verduras — 350 kcal, 32g prot
+• Huevos con salmón ahumado + aguacate — 340 kcal, 30g prot
+Regla de oro desayuno: prioriza 20-30g proteína + fibra para reducir hambre el resto del día.
 IMPORTANTE: Responde ÚNICAMENTE con el JSON, sin texto adicional, sin markdown.`,
         messages: [
           {
