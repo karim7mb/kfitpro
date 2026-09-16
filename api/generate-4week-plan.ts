@@ -145,15 +145,52 @@ ESTRUCTURA DE CADA SESIÓN:
 - 1-2 aislamientos (pump final y conexión mente-músculo)
 - Total: 5-7 ejercicios por sesión
 
-EJERCICIOS RECOMENDADOS POR GRUPO:
-- Pecho: Press banca, press inclinado mancuernas, aperturas en cable, pec deck
-- Espalda: Dominadas/jalón, remo con barra, remo en polea, pullover en cable
-- Hombros: Press militar, elevaciones laterales en cable, pájaros, face pulls
-- Cuádriceps: Sentadilla, prensa, extensión de cuádriceps, sentadilla búlgara
-- Isquios/Glúteos: RDL, curl femoral, hip thrust, buenos días
-- Bíceps: Curl con barra, curl en banco inclinado (estiramiento), curl martillo
-- Tríceps: Press francés, extensión overhead en polea, fondos, press cerrado
-- Gemelos: Elevación de talones de pie, elevación sentado
+EJERCICIOS POR GRUPO MUSCULAR (tier list basada en ciencia de Nippard — prioriza S+ y S):
+
+PECHO:
+- S+: Press en máquina de pecho (chest press machine)
+- S: Aperturas en cable sentado (seated cable pec fly)
+- A: Press banca con barra, press inclinado con barra, press inclinado mancuernas, press plano mancuernas, dips, pec deck, cruces en cable
+
+ESPALDA:
+- S: Jalón al pecho agarre ancho, jalón agarre neutro, remo en máquina con soporte pectoral (chest supported row), remo en cable, remo Meadows
+- A: Dominadas agarre ancho, dominadas agarre neutro, remo con mancuerna un brazo, pullover en cable
+
+HOMBROS (lateral/posterior/anterior por separado):
+- S (lateral): Elevación lateral en cable, cable Y raise
+- S (posterior): Pájaro en pec deck inverso (reverse pec deck), cruces en cable invertido
+- A+ (anterior): Press hombros en máquina
+- A: Elevación lateral mancuerna con inclinación, face pull con cuerda, press hombros mancuernas sentado
+- EVITAR: Elevaciones frontales (tier D), press militar de pie (tier B)
+
+CUÁDRICEPS:
+- S+: Hack squat
+- S: Sentadilla con barra, sentadilla búlgara (Bulgarian split squat), pendulum squat, sentadilla en máquina Smith
+- A: Sentadilla frontal, prensa 45°, extensión de cuádriceps en máquina, reverse nordic
+
+GLÚTEOS:
+- S: Zancada caminando (walking lunges), abducción de cadera en máquina, extensión de espalda 45° con énfasis glúteo
+- A: Hip thrust en máquina, sentadilla búlgara con inclinación hacia adelante, sentadilla con barra (profunda), RDL (mejor para glúteo inferior), hip thrust con barra, step ups
+- Para mujeres: prioriza abducción en máquina (S), hip thrust máquina (A) y RDL
+
+ISQUIOTIBIALES:
+- S+: Curl femoral sentado (seated hamstring curl) — mayor hipertrofia que el tumbado
+- A: RDL, curl femoral tumbado, nordic curl
+
+BÍCEPS:
+- S+: Curl bayesiano en cable (face away bayesian curl) — estiramiento completo
+- S: Curl predicador con mancuerna, curl predicador en máquina
+- A: Curl con barra EZ, curl con mancuerna de pie, curl inclinado, curl tumbado en banco
+
+TRÍCEPS:
+- S+: Extensión de tríceps overhead en polea con barra — carga en posición elongada
+- S: Press francés con barra (skullcrusher)
+- A: Press de tríceps en polea (triceps pressdown), extensión overhead mancuerna un brazo, press cerrado, dips agarre cerrado
+
+GEMELOS:
+- Elevación de talones de pie (mayor ROM), elevación de talones sentado (sóleo)
+
+CRITERIOS DE SELECCIÓN (siempre): 1) Alta tensión en posición elongada 2) Sin dolor articular 3) Posibilidad de sobrecarga progresiva.
 
 Peso siempre 0 (el cliente lo ajustará). Usa nombres de ejercicios en español.
 IMPORTANTE: Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin markdown.`,
