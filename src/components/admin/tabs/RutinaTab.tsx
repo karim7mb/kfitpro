@@ -221,6 +221,114 @@ function TecnicaModal({ exerciseName, video, slug, onClose }: TecnicaModalProps)
   )
 }
 
+// ── Generador modal ──────────────────────────────────────────────────────────
+
+type Genero = 'hombre' | 'mujer'
+type Equipamiento = 'gimnasio_completo' | 'gimnasio_basico' | 'casa' | 'sin_equipamiento'
+
+interface GenModalProps {
+  genero: Genero
+  setGenero: (g: Genero) => void
+  equipamiento: Equipamiento
+  setEquipamiento: (e: Equipamiento) => void
+  loading: boolean
+  onConfirm: () => void
+  onClose: () => void
+}
+
+function GenModal({ genero, setGenero, equipamiento, setEquipamiento, loading, onConfirm, onClose }: GenModalProps) {
+  const equipOpts: { value: Equipamiento; label: string; desc: string }[] = [
+    { value: 'gimnasio_completo', label: 'Gimnasio completo', desc: 'Barras, máquinas, poleas, cables' },
+    { value: 'gimnasio_basico', label: 'Gimnasio básico', desc: 'Barras, mancuernas y máquinas básicas' },
+    { value: 'casa', label: 'Casa con mancuernas', desc: 'Mancuernas y peso corporal' },
+    { value: 'sin_equipamiento', label: 'Sin equipamiento', desc: 'Solo peso corporal' },
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)' }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-2xl w-full max-w-sm"
+        style={{ background: '#161820', border: '1px solid #2a2d3e' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #1E2130' }}>
+          <div>
+            <p className="text-xs font-medium mb-0.5" style={{ color: '#F5611A' }}>Generar con IA</p>
+            <h3 className="font-bold text-white">Plan 4 semanas · Nippard</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg cursor-pointer" style={{ background: '#1E2130', color: '#9CA3AF' }}>
+            <X style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
+
+        <div className="px-5 py-5 space-y-5">
+          {/* Género */}
+          <div>
+            <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: '#6B7280' }}>Género</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(['hombre', 'mujer'] as Genero[]).map(g => (
+                <button
+                  key={g}
+                  onClick={() => setGenero(g)}
+                  className="py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition-all"
+                  style={{
+                    background: genero === g ? 'rgba(245,97,26,0.2)' : '#1E2130',
+                    color: genero === g ? '#F5611A' : '#9CA3AF',
+                    border: `1px solid ${genero === g ? '#F5611A' : '#2a2d3e'}`,
+                  }}
+                >
+                  {g === 'hombre' ? '♂ Hombre' : '♀ Mujer'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Equipamiento */}
+          <div>
+            <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: '#6B7280' }}>Equipamiento disponible</p>
+            <div className="space-y-2">
+              {equipOpts.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setEquipamiento(opt.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl text-left cursor-pointer transition-all"
+                  style={{
+                    background: equipamiento === opt.value ? 'rgba(245,97,26,0.15)' : '#1E2130',
+                    border: `1px solid ${equipamiento === opt.value ? '#F5611A' : '#2a2d3e'}`,
+                  }}
+                >
+                  <span className="text-sm font-medium" style={{ color: equipamiento === opt.value ? '#F5611A' : '#E5E7EB' }}>
+                    {opt.label}
+                  </span>
+                  <span className="block text-xs mt-0.5" style={{ color: '#6B7280' }}>{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5">
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="w-full py-3 rounded-xl text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
+            style={{ background: loading ? '#7a3010' : '#F5611A', color: 'white', opacity: loading ? 0.8 : 1 }}
+          >
+            {loading
+              ? <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> Generando plan...</>
+              : <>✨ Generar plan personalizado</>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PLANTILLAS = [
@@ -233,6 +341,9 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
   const [showPlantillas, setShowPlantillas] = useState(false)
   const [genLoading, setGenLoading] = useState(false)
   const [tecnicaModal, setTecnicaModal] = useState<{ name: string; video?: string; slug?: string } | null>(null)
+  const [showGenModal, setShowGenModal] = useState(false)
+  const [genGenero, setGenGenero] = useState<'hombre' | 'mujer'>('hombre')
+  const [genEquipamiento, setGenEquipamiento] = useState<'gimnasio_completo' | 'gimnasio_basico' | 'casa' | 'sin_equipamiento'>('gimnasio_completo')
 
   useEffect(() => {
     if (!clientId) { setRealRutina(null); return }
@@ -262,6 +373,53 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
     }
   }
 
+  const handleGenerate = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setGenLoading(true)
+    try {
+      const perfil = await fetchPerfilEntrenamiento(clientId!)
+      const clienteData = await import('../../../lib/supabase').then(m => m.fetchClienteData(clientId!))
+      const res = await fetch('/api/generate-4week-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nivel: perfil?.nivel ?? 'principiante',
+          diasEntreno: perfil?.diasEntreno ?? 3,
+          tiempoEntrenoSemana: perfil?.tiempoEntrenoSemana ?? '3-4h',
+          objetivo: clienteData?.objetivo ?? 'mantenimiento',
+          lesiones: perfil?.lesiones ?? [],
+          nombre: `Plan 4 Semanas — ${clienteData?.objetivo ?? 'Entrenamiento'}`,
+          genero: genGenero,
+          equipamiento: genEquipamiento,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`)
+      const dias: DiaRutina[] = (data.dias ?? data.semanas?.[0]?.dias ?? []).map((d: DiaRutina, i: number) => ({
+        ...d,
+        id: d.id ?? `d${i}`,
+        ejercicios: d.ejercicios.map((e, j) => ({ ...e, id: e.id ?? `e${i}-${j}` })),
+      }))
+      await upsertRutina4Semanas(clientId!, user.id, {
+        nombre: data.nombre,
+        semana_actual: 1,
+        activa: true,
+        dias,
+        semanas: data.semanas,
+        fecha_inicio: data.fecha_inicio,
+      })
+      const updated = await fetchRutina4Semanas(clientId!)
+      setRealRutina(updated)
+      setShowGenModal(false)
+      onToast('✨ Plan 4 semanas generado. ¡Revísalo!', 'success')
+    } catch (e) {
+      onToast(`Error IA: ${e instanceof Error ? e.message : 'desconocido'}`, 'error')
+    } finally {
+      setGenLoading(false)
+    }
+  }
+
   const displayRutina: RutinaData | null = clientId
     ? (realRutina === 'loading' ? null : realRutina)
     : fallbackRutina
@@ -283,6 +441,19 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
           video={tecnicaModal.video}
           slug={tecnicaModal.slug}
           onClose={() => setTecnicaModal(null)}
+        />
+      )}
+
+      {/* Generador modal */}
+      {showGenModal && (
+        <GenModal
+          genero={genGenero}
+          setGenero={setGenGenero}
+          equipamiento={genEquipamiento}
+          setEquipamiento={setGenEquipamiento}
+          loading={genLoading}
+          onConfirm={handleGenerate}
+          onClose={() => !genLoading && setShowGenModal(false)}
         />
       )}
 
@@ -323,56 +494,11 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
           {clientId && (
             <button
               disabled={genLoading || assigning}
-              onClick={async () => {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-                setGenLoading(true)
-                try {
-                  const perfil = await fetchPerfilEntrenamiento(clientId)
-                  const clienteData = await import('../../../lib/supabase').then(m => m.fetchClienteData(clientId))
-                  const res = await fetch('/api/generate-4week-plan', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      nivel: perfil?.nivel ?? 'principiante',
-                      diasEntreno: perfil?.diasEntreno ?? 3,
-                      tiempoEntrenoSemana: perfil?.tiempoEntrenoSemana ?? '3-4h',
-                      objetivo: clienteData?.objetivo ?? 'mantenimiento',
-                      lesiones: perfil?.lesiones ?? [],
-                      nombre: `Plan 4 Semanas — ${clienteData?.objetivo ?? 'Entrenamiento'}`,
-                    }),
-                  })
-                  const data = await res.json()
-                  if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`)
-                  const dias: DiaRutina[] = (data.dias ?? data.semanas?.[0]?.dias ?? []).map((d: DiaRutina, i: number) => ({
-                    ...d,
-                    id: d.id ?? `d${i}`,
-                    ejercicios: d.ejercicios.map((e, j) => ({ ...e, id: e.id ?? `e${i}-${j}` })),
-                  }))
-                  await upsertRutina4Semanas(clientId, user.id, {
-                    nombre: data.nombre,
-                    semana_actual: 1,
-                    activa: true,
-                    dias,
-                    semanas: data.semanas,
-                    fecha_inicio: data.fecha_inicio,
-                  })
-                  const updated = await fetchRutina4Semanas(clientId)
-                  setRealRutina(updated)
-                  onToast('✨ Plan 4 semanas generado. ¡Revísalo!', 'success')
-                } catch (e) {
-                  onToast(`Error IA: ${e instanceof Error ? e.message : 'desconocido'}`, 'error')
-                } finally {
-                  setGenLoading(false)
-                }
-              }}
+              onClick={() => setShowGenModal(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer"
-              style={{ background: genLoading ? '#7a3010' : '#F5611A', color: 'white', opacity: genLoading ? 0.8 : 1 }}
+              style={{ background: '#F5611A', color: 'white', opacity: genLoading ? 0.8 : 1 }}
             >
-              {genLoading
-                ? <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> Generando...</>
-                : <>✨ Generar con IA</>
-              }
+              ✨ Generar con IA
             </button>
           )}
           <button
@@ -432,34 +558,59 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
               <div className="divide-y" style={{ borderColor: '#1E2130' }}>
                 {dia.ejercicios.map(ej => {
                   const mw = findMusclewikiVideo(ej.nombre)
+                  const descansoLabel = ej.descanso
+                    ? ej.descanso >= 60 ? `${Math.round(ej.descanso / 60)}min` : `${ej.descanso}s`
+                    : null
                   return (
-                    <div key={ej.id} className="px-5 py-3 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-white">{ej.nombre}</span>
-                        <span className="text-sm ml-2" style={{ color: '#9CA3AF' }}>
-                          {ej.series}×{ej.repsMin}-{ej.repsMax}
-                          {ej.peso > 0 && ` · ${ej.peso} kg`}
-                        </span>
+                    <div key={ej.id} className="relative">
+                      {ej.superset && (
+                        <div className="absolute left-5 -top-px flex items-center gap-1.5" style={{ zIndex: 1 }}>
+                          <span className="text-xs px-2 py-px rounded-sm font-medium" style={{ background: 'rgba(139,92,246,0.15)', color: '#A78BFA', fontSize: 10 }}>
+                            ↕ Superset
+                          </span>
+                        </div>
+                      )}
+                      <div className={`px-5 py-3 flex items-center gap-3 ${ej.superset ? 'pt-4' : ''}`}>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-white">{ej.nombre}</span>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs" style={{ color: '#9CA3AF' }}>
+                              {ej.series} series · {ej.repsMin}-{ej.repsMax} reps{ej.peso > 0 ? ` · ${ej.peso} kg` : ''}
+                            </span>
+                            {descansoLabel && (
+                              <span className="text-xs" style={{ color: '#6B7280' }}>
+                                ⏱ {descansoLabel}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setTecnicaModal({ name: ej.nombre, video: mw?.video, slug: mw?.slug })}
+                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg cursor-pointer shrink-0"
+                          style={{
+                            background: mw ? 'rgba(245,97,26,0.12)' : 'rgba(107,114,128,0.12)',
+                            color: mw ? '#F5611A' : '#6B7280',
+                            border: `1px solid ${mw ? 'rgba(245,97,26,0.25)' : 'rgba(107,114,128,0.2)'}`,
+                          }}
+                          title="Ver técnica correcta"
+                        >
+                          <Play style={{ width: 10, height: 10 }} />
+                          Técnica
+                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {ej.rir !== undefined && (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(99,102,241,0.15)', color: '#818CF8' }}>
+                              RIR {ej.rir}
+                            </span>
+                          )}
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-bold"
+                            style={{ background: `${RpeColor(ej.rpe)}20`, color: RpeColor(ej.rpe) }}
+                          >
+                            RPE {ej.rpe}
+                          </span>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => setTecnicaModal({ name: ej.nombre, video: mw?.video, slug: mw?.slug })}
-                        className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg cursor-pointer shrink-0"
-                        style={{
-                          background: mw ? 'rgba(245,97,26,0.12)' : 'rgba(107,114,128,0.12)',
-                          color: mw ? '#F5611A' : '#6B7280',
-                          border: `1px solid ${mw ? 'rgba(245,97,26,0.25)' : 'rgba(107,114,128,0.2)'}`,
-                        }}
-                        title="Ver técnica correcta"
-                      >
-                        <Play style={{ width: 10, height: 10 }} />
-                        Técnica
-                      </button>
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full font-bold shrink-0"
-                        style={{ background: `${RpeColor(ej.rpe)}20`, color: RpeColor(ej.rpe) }}
-                      >
-                        RPE {ej.rpe}/10
-                      </span>
                     </div>
                   )
                 })}

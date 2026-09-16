@@ -38,6 +38,9 @@ export interface DiaRutina {
     repsMax: number
     peso: number
     rpe: number
+    rir?: number
+    descanso?: number
+    superset?: boolean
   }[]
 }
 

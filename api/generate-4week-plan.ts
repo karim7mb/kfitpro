@@ -8,6 +8,9 @@ interface EjercicioRutina {
   repsMax: number
   peso: number
   rpe: number
+  rir: number
+  descanso: number
+  superset?: boolean
 }
 
 interface DiaRutina {
@@ -23,17 +26,18 @@ function deriveWeek(week1Days: DiaRutina[], weekNum: 2 | 3 | 4): DiaRutina[] {
     id: dia.id.replace(/w1|d(\d)/, (m, n) => weekNum === 4 ? `w4d${n ?? m}` : `w${weekNum}d${n ?? m}`),
     ejercicios: dia.ejercicios.map((ej, i) => {
       const baseId = `w${weekNum}e${i + 1}`
-      // Semana 4: deload — 50% volumen, -2 RPE (recuperación activa)
+      // Semana 4: deload — 50% volumen, mucho margen (RIR +3, RPE -2)
       if (weekNum === 4) {
         return {
           ...ej,
           id: baseId,
           series: Math.max(2, Math.round(ej.series * 0.5)),
           rpe: Math.max(5, ej.rpe - 2),
+          rir: Math.min(5, (ej.rir ?? 3) + 3),
         }
       }
-      // Semana 2: +2 series (MEV → mid-MAV), +0.5 RPE (doble progresión: más reps)
-      // Semana 3: +4 series vs semana 1 (mid-MAV → pico), +1 RPE, repsMax -2 (más peso)
+      // Semana 2: +2 series, RPE +0.5, RIR -1 (más cerca del fallo)
+      // Semana 3: +4 series, RPE +1, RIR -2, repsMax -2 (pico MAV)
       const extraSeries = (weekNum - 1) * 2
       const extraRpe = (weekNum - 1) * 0.5
       return {
@@ -41,6 +45,7 @@ function deriveWeek(week1Days: DiaRutina[], weekNum: 2 | 3 | 4): DiaRutina[] {
         id: baseId,
         series: Math.min(6, ej.series + extraSeries),
         rpe: Math.min(9.5, ej.rpe + extraRpe),
+        rir: Math.max(0, (ej.rir ?? 3) - (weekNum - 1)),
         repsMax: weekNum === 3 ? Math.max(ej.repsMin + 1, ej.repsMax - 2) : ej.repsMax,
       }
     }),
@@ -51,7 +56,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
   try {
-    const { nivel, diasEntreno, tiempoEntrenoSemana, objetivo, lesiones, nombre } = await req.json()
+    const { nivel, diasEntreno, tiempoEntrenoSemana, objetivo, lesiones, nombre, genero, equipamiento } = await req.json()
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) return Response.json({ error: 'Sin ANTHROPIC_API_KEY' }, { status: 500 })
@@ -79,6 +84,18 @@ export default async function handler(req: Request): Promise<Response> {
       ? `\n- Lesiones/limitaciones (EXCLUIR ejercicios que las agraven): ${lesiones.join(', ')}`
       : ''
 
+    const generoLine = genero === 'mujer'
+      ? '\n- Género: Mujer — prioriza glúteos e isquiotibiales: hip thrust, sentadilla búlgara, RDL, abducción de cadera, zancadas. En tren superior: reduce carga en compuestos pesados, añade más trabajo de hombros y brazos con rangos altos.'
+      : '\n- Género: Hombre — equilibrio general con énfasis en tren superior (press, jalones, remo) y pierna completa.'
+
+    const equipLabels: Record<string, string> = {
+      gimnasio_completo: 'Gimnasio completo: barras, mancuernas, poleas, cables, máquinas. Todos los ejercicios disponibles.',
+      gimnasio_basico: 'Gimnasio básico: barras, mancuernas y máquinas fundamentales. Sin poleas o máquinas especializadas.',
+      casa: 'Casa con mancuernas: SOLO mancuernas y peso corporal. Ningún ejercicio con máquinas, poleas, barras o cable. Adapta todo a mancuernas o bodyweight.',
+      sin_equipamiento: 'Sin equipamiento: SOLO peso corporal. Ningún ejercicio con ningún equipo. Sentadillas, flexiones, dominadas, fondos, zancadas, plancha.',
+    }
+    const equipamientoLine = `\n- Equipamiento: ${equipLabels[equipamiento] ?? equipLabels['gimnasio_completo']}`
+
     const diasNum = Number(diasEntreno) || 3
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -100,10 +117,21 @@ PRINCIPIOS CLAVE:
 4. SFR (Stimulus-to-Fatigue Ratio): Prioriza ejercicios con alto estímulo y fatiga manejable.
 5. ESTIRAMIENTO BAJO CARGA: Incluye al menos 1 ejercicio por sesión que cargue el músculo en posición elongada (curl en banco inclinado, press inclinado, RDL, extensión de tríceps overhead, aperturas en cable).
 
-RANGOS DE REPETICIONES:
-- Compuestos principales (sentadilla, press, peso muerto, remo): 5-8 reps — RPE 7-8
-- Accesorios compuestos (press mancuernas, jalones, remo en máquina): 8-12 reps — RPE 8
-- Aislamientos (curl, extensión, lateral raises, gemelo): 12-20 reps — RPE 8-9
+RANGOS DE REPETICIONES Y MÉTRICAS (Semana 1 — base MEV):
+- Compuestos (sentadilla, press, peso muerto, remo): 5-8 reps — RPE 7 — RIR 3 — descanso 180-240s
+- Accesorios (press mancuernas, jalones, remo máquina): 8-12 reps — RPE 8 — RIR 2 — descanso 90-120s
+- Aislamientos (curl, extensión, laterales, gemelo): 12-20 reps — RPE 8-9 — RIR 1 — descanso 60-90s
+
+RIR (Reps In Reserve): cuántas repeticiones quedan en el depósito al parar la serie. RIR 3 = muy conservador, RIR 0 = fallo. En semana 1 empieza conservador; las semanas 2-3 reducen RIR progresivamente.
+
+DESCANSOS: incluye el campo "descanso" en segundos según el tipo de ejercicio (compuesto: 180-240s, accesorio: 90-120s, aislamiento: 60-90s).
+
+SUPERSETS ANTAGONISTAS (opcional, para sesiones con poco tiempo):
+Para maximizar eficiencia, puedes agrupar pares antagonistas. Marca el segundo ejercicio del par con "superset": true.
+Pares válidos: press pecho + remo espalda | curl bíceps + extensión tríceps | extensión cuádriceps + curl femoral | press hombros + jalón.
+NUNCA hagas superset de dos compuestos pesados (sentadilla + peso muerto). Solo usa supersets cuando tenga sentido por tiempo o grupo muscular.
+
+CALENTAMIENTO (implícito antes de cada compuesto principal): el cliente hará 50%×10 → 70%×5 → 85%×2 antes de los working sets. No lo incluyas en el JSON.
 
 SPLITS POR DÍAS:
 - 2-3 días → Cuerpo completo (Full Body), rotando énfasis
@@ -127,7 +155,6 @@ EJERCICIOS RECOMENDADOS POR GRUPO:
 - Tríceps: Press francés, extensión overhead en polea, fondos, press cerrado
 - Gemelos: Elevación de talones de pie, elevación sentado
 
-RPE: Compuestos RPE 7-8, accesorios RPE 8, aislamientos RPE 9. NUNCA al fallo en compuestos con carga espinal.
 Peso siempre 0 (el cliente lo ajustará). Usa nombres de ejercicios en español.
 IMPORTANTE: Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin markdown.`,
         messages: [{
@@ -136,13 +163,13 @@ IMPORTANTE: Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin mark
 - Nivel: ${nivelLabels[nivel] ?? nivel}
 - Objetivo: ${objLabels[objetivo] ?? objetivo}
 - Días de entrenamiento: ${diasNum} días/semana → elige el split más adecuado
-- Tiempo por sesión: ${tiempoLabels[tiempoEntrenoSemana] ?? tiempoEntrenoSemana}${lesionesLine}
+- Tiempo por sesión: ${tiempoLabels[tiempoEntrenoSemana] ?? tiempoEntrenoSemana}${generoLine}${equipamientoLine}${lesionesLine}
 
 Esta semana 1 es la base MEV. Las semanas 2-3 subirán volumen e intensidad progresivamente, la semana 4 será deload.
 Cada grupo muscular debe aparecer al menos 2 veces por semana. Incluye ejercicios que carguen en posición elongada.
 
-Devuelve SOLO este JSON (ids: w1d1, w1d2...; ejercicios: w1e1, w1e2...):
-{"nombre":"${nombre ?? 'Plan 4 Semanas'}","descripcion":"Semana 1 — Base MEV","dias":[{"id":"w1d1","nombre":"Día 1","titulo":"Empuje — Pecho, Hombros y Tríceps","ejercicios":[{"id":"w1e1","nombre":"Press banca con barra","series":3,"repsMin":6,"repsMax":10,"peso":0,"rpe":7},{"id":"w1e2","nombre":"Press inclinado mancuernas","series":3,"repsMin":10,"repsMax":14,"peso":0,"rpe":8},{"id":"w1e3","nombre":"Aperturas en cable","series":3,"repsMin":12,"repsMax":16,"peso":0,"rpe":9},{"id":"w1e4","nombre":"Elevaciones laterales en cable","series":3,"repsMin":15,"repsMax":20,"peso":0,"rpe":9},{"id":"w1e5","nombre":"Extensión tríceps overhead en polea","series":3,"repsMin":12,"repsMax":16,"peso":0,"rpe":8}]}]}`,
+Devuelve SOLO este JSON (ids: w1d1, w1d2...; ejercicios: w1e1, w1e2...). Cada ejercicio DEBE incluir: rir (reps en reserva), descanso (segundos), y opcionalmente superset: true si es antagonista del anterior:
+{"nombre":"${nombre ?? 'Plan 4 Semanas'}","descripcion":"Semana 1 — Base MEV","dias":[{"id":"w1d1","nombre":"Día 1","titulo":"Empuje — Pecho, Hombros y Tríceps","ejercicios":[{"id":"w1e1","nombre":"Press banca con barra","series":3,"repsMin":6,"repsMax":10,"peso":0,"rpe":7,"rir":3,"descanso":210},{"id":"w1e2","nombre":"Press inclinado mancuernas","series":3,"repsMin":10,"repsMax":14,"peso":0,"rpe":8,"rir":2,"descanso":120},{"id":"w1e3","nombre":"Remo en polea con agarre neutro","series":3,"repsMin":10,"repsMax":14,"peso":0,"rpe":8,"rir":2,"descanso":90,"superset":true},{"id":"w1e4","nombre":"Elevaciones laterales en cable","series":3,"repsMin":15,"repsMax":20,"peso":0,"rpe":9,"rir":1,"descanso":75},{"id":"w1e5","nombre":"Extensión tríceps overhead en polea","series":3,"repsMin":12,"repsMax":16,"peso":0,"rpe":8,"rir":2,"descanso":75}]}]}`,
         }],
       }),
     })
