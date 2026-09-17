@@ -137,11 +137,14 @@ Marca el segundo ejercicio del par con "superset": true. NUNCA superset entre do
 
 CALENTAMIENTO (implícito, no incluir en JSON): 50%×10 → 70%×5 → 85%×2 antes de cada compuesto principal.
 
-SPLITS POR DÍAS:
-- 2-3 días → Full Body rotando énfasis
-- 4 días → Upper/Lower (2x por grupo muscular)
-- 5 días → Push/Pull/Legs/Upper/Lower
-- 6 días → PPL x2
+SPLITS OBLIGATORIOS SEGÚN DÍAS (NO improvises el split — usa el que se indica):
+- 2 días → Full Body A + Full Body B (todos los músculos ambos días)
+- 3 días → Full Body A + Full Body B + Full Body C (rotando énfasis)
+- 4 días → UPPER/LOWER OBLIGATORIO: Día1=Upper A (empuje), Día2=Lower A (cuádriceps), Día3=Upper B (tracción), Día4=Lower B (glúteos/isquios). NUNCA uses Push/Pull/Legs para 4 días — no cumple 2x frecuencia.
+- 5 días → Push / Pull / Legs / Upper / Lower
+- 6 días → Push / Pull / Legs / Push / Pull / Legs
+
+REGLA DE ORO DE FRECUENCIA: Cada grupo muscular DEBE aparecer exactamente 2 veces por semana. Si un músculo solo aparece 1 vez, el split está mal. Verifica que pecho, espalda, hombros, bíceps, tríceps, cuádriceps, glúteos e isquiotibiales aparezcan en 2 días distintos.
 
 ESTRUCTURA POR SESIÓN: 1-2 compuestos + 2-3 accesorios + 1-2 aislamientos = 5-7 ejercicios.
 
