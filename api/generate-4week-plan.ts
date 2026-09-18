@@ -142,11 +142,24 @@ CALENTAMIENTO (implícito, no incluir en JSON): 50%×10 → 70%×5 → 85%×2 an
 SPLITS OBLIGATORIOS SEGÚN DÍAS (NO improvises el split — usa el que se indica):
 - 2 días → Full Body A + Full Body B (todos los músculos ambos días)
 - 3 días → Full Body A + Full Body B + Full Body C (rotando énfasis)
-- 4 días → UPPER/LOWER OBLIGATORIO: Día1=Upper A (empuje), Día2=Lower A (cuádriceps), Día3=Upper B (tracción), Día4=Lower B (glúteos/isquios). NUNCA uses Push/Pull/Legs para 4 días — no cumple 2x frecuencia.
+- 4 días → UPPER/LOWER CON DOBLE FRECUENCIA:
+    • Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
+    • Día 2 Lower A: Cuádriceps dominant (hack squat/pendulum/Smith como compuesto principal + extensión cuáds) + glúteos (hip thrust o búlgara) + isquios (curl femoral SENTADO)
+    • Día 3 Upper B: PRIMARY tracción (2 espalda + 2 deltoides lateral + 1-2 bíceps) + SECUNDARIO empuje (1 press pecho o apertura + 1 tríceps)
+    • Día 4 Lower B: Isquios dominant (RDL + curl femoral tumbado) + glúteos (hip thrust o abducción) + cuádriceps secundario (prensa o hack squat) + gemelos
+    RESULTADO: Pecho 2x ✓ Espalda 2x ✓ Deltoides lateral 2x ✓ Bíceps 2x ✓ Tríceps 2x ✓ Cuáds 2x ✓ Glúteos 2x ✓ Isquios 2x ✓
 - 5 días → Push / Pull / Legs / Upper / Lower
 - 6 días → Push / Pull / Legs / Push / Pull / Legs
 
-REGLA DE ORO DE FRECUENCIA: Cada grupo muscular DEBE aparecer exactamente 2 veces por semana. Si un músculo solo aparece 1 vez, el split está mal. Verifica que pecho, espalda, hombros, bíceps, tríceps, cuádriceps, glúteos e isquiotibiales aparezcan en 2 días distintos.
+REGLA DE ORO DE FRECUENCIA: Cada grupo muscular DEBE aparecer exactamente 2 veces por semana.
+OBLIGATORIO en 4 días:
+  - Deltoides lateral (elevaciones en cable): SIEMPRE en Upper A Y en Upper B
+  - Curl femoral SENTADO: SIEMPRE en Lower A (primario isquios)
+  - Hack squat / pendulum / Smith: SIEMPRE en Lower A como primer compuesto de cuádriceps
+  - Pecho: 2 ejercicios en Upper A + 1 ejercicio en Upper B
+  - Espalda: 1 ejercicio en Upper A + 2 ejercicios en Upper B
+  - Bíceps: 1 ejercicio en Upper A + 1-2 ejercicios en Upper B
+  - Tríceps: 1-2 ejercicios en Upper A + 1 ejercicio en Upper B
 
 ESTRUCTURA POR SESIÓN: 1-2 compuestos + 2-3 accesorios + 1-2 aislamientos = 5-7 ejercicios.
 
@@ -238,7 +251,8 @@ IMPORTANTE: Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin mark
 - Tiempo por sesión: ${tiempoLabels[tiempoEntrenoSemana] ?? tiempoEntrenoSemana}${generoLine}${equipamientoLine}${lesionesLine}
 
 Esta semana 1 es la base MEV. Semanas 2-3 suben volumen e intensidad, semana 4 = deload (volumen -40%, RPE 6-8).
-Cada grupo muscular aparece mínimo 2x/semana. Prioriza ejercicios S+ y S del tier list. Incluye extensión de cuádriceps (recto femoral) y curl femoral sentado en días de pierna. Incluye al menos 1 ejercicio por sesión en posición elongada del músculo.
+VERIFICACIÓN OBLIGATORIA antes de generar: comprueba que pecho, espalda, deltoides lateral, bíceps, tríceps, cuádriceps, glúteos e isquiotibiales aparecen exactamente en 2 días distintos.
+Para 4 días: Upper A tiene push principal + pull secundario; Upper B tiene pull principal + push secundario. Deltoides lateral (elevaciones en cable) aparece en AMBOS días Upper. Hack squat/pendulum/Smith como primer compuesto en Lower A. Curl femoral SENTADO en Lower A. Prioriza ejercicios S+ y S del tier list.
 
 Devuelve SOLO este JSON (ids: w1d1, w1d2...; ejercicios: w1e1, w1e2...). Cada ejercicio DEBE incluir: rir, descanso (segundos), y superset: true si es antagonista del anterior:
 {"nombre":"${nombre ?? 'Plan 4 Semanas'}","descripcion":"Semana 1 — Base MEV","dias":[{"id":"w1d1","nombre":"Día 1","titulo":"Empuje — Pecho, Hombros y Tríceps","ejercicios":[{"id":"w1e1","nombre":"Press inclinado agarre cerrado con barra","series":3,"repsMin":5,"repsMax":8,"peso":0,"rpe":7,"rir":3,"descanso":210},{"id":"w1e2","nombre":"Press en máquina de pecho","series":3,"repsMin":10,"repsMax":14,"peso":0,"rpe":8,"rir":2,"descanso":120},{"id":"w1e3","nombre":"Aperturas en cable sentado","series":3,"repsMin":12,"repsMax":16,"peso":0,"rpe":8,"rir":2,"descanso":90},{"id":"w1e4","nombre":"Elevaciones laterales en cable","series":3,"repsMin":15,"repsMax":20,"peso":0,"rpe":9,"rir":1,"descanso":75},{"id":"w1e5","nombre":"Extensión tríceps overhead en polea con barra","series":3,"repsMin":12,"repsMax":16,"peso":0,"rpe":8,"rir":2,"descanso":75}]}]}`,
