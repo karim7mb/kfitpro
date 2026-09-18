@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, CheckCircle2, Pencil, X, Check } from 'lucide-react'
+import { Loader2, CheckCircle2, Pencil, X, Check, Droplets, Moon, Zap } from 'lucide-react'
 import { demoRutina } from '../../data/demo'
 import {
   fetchRutina4Semanas, upsertSesionLog, fetchLastSesionForDia,
-  type Rutina4Semanas, type DiaRutina,
+  upsertProgresoDiario, fetchProgresoDiario,
+  type Rutina4Semanas, type DiaRutina, type ProgresoDiario,
 } from '../../lib/supabase'
 
 interface MiRutinaProps {
@@ -62,6 +63,12 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   // Per-exercise client overrides (name, series, reps) — session only
   const [ejOverrides, setEjOverrides] = useState<Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }>>({})
   const [editingEj, setEditingEj] = useState<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number } | null>(null)
+  const [progreso, setProgreso] = useState<ProgresoDiario | null>(null)
+  const [hidratacion, setHidratacion] = useState(0)
+  const [litrosInput, setLitrosInput] = useState<number | ''>('')
+  const [pasos, setPasos] = useState(0)
+  const [horasSueno, setHorasSueno] = useState<number | ''>('')
+  const [dolor, setDolor] = useState(5)
 
   const load = useCallback(async () => {
     if (demo) {
@@ -71,13 +78,25 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
       return
     }
     setLoading(true)
-    const r = await fetchRutina4Semanas(userId)
+    const [r, progresos] = await Promise.all([
+      fetchRutina4Semanas(userId),
+      fetchProgresoDiario(userId, 1),
+    ])
     setRutina(r)
     if (r) {
       const dias = r.semanas?.[calcSemanaActual(r.fecha_inicio) - 1]?.dias ?? r.dias ?? []
       const idx = getTodayDiaIdx(dias)
       setSelectedDiaIdx(idx)
       if (dias[idx]) prefillFromLast(dias[idx].id)
+    }
+    const todayProg = progresos.find(p => p.fecha === todayDateStr())
+    if (todayProg) {
+      setProgreso(todayProg)
+      setHidratacion(todayProg.hidratacion ?? 0)
+      setLitrosInput(todayProg.litros ?? (todayProg.hidratacion ?? 0) * 0.25)
+      setPasos(todayProg.pasos ?? 0)
+      setHorasSueno(todayProg.horas_sueno ?? '')
+      setDolor(todayProg.dolor_corporal ?? 5)
     }
     setLoading(false)
   }, [userId, demo])
@@ -169,11 +188,22 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
             return { serie: i + 1, reps: reps[k] ? Number(reps[k]) : undefined, peso: pesos[k] ? Number(pesos[k]) : undefined, completada: seriesDone[k] ?? false }
           })
         }
-        await upsertSesionLog({
-          cliente_id: userId, rutina_id: rutina.id, semana_num: semanaActual,
-          dia_id: todayWorkout.id, fecha: sessionDate, completada: allDone,
-          sensacion, notas: note || undefined, series_completadas: seriesMap,
-        })
+        await Promise.all([
+          upsertSesionLog({
+            cliente_id: userId, rutina_id: rutina.id, semana_num: semanaActual,
+            dia_id: todayWorkout.id, fecha: sessionDate, completada: allDone,
+            sensacion, notas: note || undefined, series_completadas: seriesMap,
+          }),
+          upsertProgresoDiario({
+            id: progreso?.id,
+            cliente_id: userId, fecha: sessionDate,
+            hidratacion,
+            litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
+            pasos: pasos > 0 ? pasos : undefined,
+            horas_sueno: horasSueno !== '' ? Number(horasSueno) : undefined,
+            dolor_corporal: dolor,
+          }),
+        ])
       } catch (e) {
         console.error(e)
         setSaving(false)
@@ -378,6 +408,66 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                 </div>
               )
             })}
+          </div>
+
+          {/* Recuperación */}
+          <div className="mx-4 mb-3 rounded-2xl p-4 space-y-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+            <p className="text-sm font-semibold text-white flex items-center gap-2">
+              <Zap size={14} style={{ color: '#F5611A' }} /> Recuperación de hoy
+            </p>
+            {/* Hidratación */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs flex items-center gap-1" style={{ color: '#6B7280' }}><Droplets size={12} /> Hidratación</span>
+                <span className="text-xs font-mono text-white">{hidratacion} vasos</span>
+              </div>
+              <div className="flex gap-1.5 flex-wrap mb-2">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <button key={i}
+                    onClick={() => { const v = hidratacion === i + 1 ? i : i + 1; setHidratacion(v); setLitrosInput(parseFloat((v * 0.25).toFixed(2))) }}
+                    className="w-8 h-8 rounded-full text-xs cursor-pointer transition-all"
+                    style={{ background: i < hidratacion ? '#3B82F6' : '#1E2130', color: i < hidratacion ? 'white' : '#6B7280' }}>
+                    💧
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="number" min={0} max={4} step={0.25} placeholder="0.00" value={litrosInput}
+                  onChange={e => { const l = parseFloat(e.target.value); if (!isNaN(l)) { setLitrosInput(l); setHidratacion(Math.round(l / 0.25)) } else setLitrosInput('') }}
+                  className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
+                  style={{ background: '#0D0E13', border: '1px solid #1E2130' }} />
+                <span className="text-xs" style={{ color: '#6B7280' }}>litros · 1 vaso = 0.25 L</span>
+              </div>
+            </div>
+            {/* Pasos */}
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="text-xs" style={{ color: '#6B7280' }}>👟 Pasos diarios</span>
+                <span className="text-xs font-mono" style={{ color: pasos >= 10000 ? '#10B981' : pasos >= 5000 ? '#F59E0B' : '#9ca3af' }}>{pasos.toLocaleString('es-ES')}</span>
+              </div>
+              <input type="range" min={0} max={20000} step={100} value={pasos} onChange={e => setPasos(Number(e.target.value))} className="w-full accent-orange-500" />
+              <div className="flex justify-between text-xs mt-1" style={{ color: '#4B5563' }}><span>0</span><span>20.000</span></div>
+            </div>
+            {/* Sueño */}
+            <div>
+              <span className="text-xs flex items-center gap-1 mb-2" style={{ color: '#6B7280' }}><Moon size={12} /> Horas de sueño</span>
+              <div className="flex items-center gap-2">
+                <input type="number" min={0} max={14} step={0.5} placeholder="7.5" value={horasSueno}
+                  onChange={e => setHorasSueno(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
+                  style={{ background: '#0D0E13', border: '1px solid #1E2130' }} />
+                <span className="text-xs" style={{ color: '#6B7280' }}>horas</span>
+              </div>
+            </div>
+            {/* Dolor */}
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="text-xs" style={{ color: '#6B7280' }}>Dolor muscular</span>
+                <span className="text-xs font-mono" style={{ color: dolor > 7 ? '#EF4444' : dolor > 4 ? '#F59E0B' : '#10B981' }}>{dolor}/10</span>
+              </div>
+              <input type="range" min={1} max={10} value={dolor} onChange={e => setDolor(Number(e.target.value))} className="w-full accent-orange-500" />
+              <div className="flex justify-between text-xs mt-1" style={{ color: '#4B5563' }}><span>Sin dolor</span><span>Muy intenso</span></div>
+            </div>
           </div>
 
           {/* Week strip */}
