@@ -52,10 +52,12 @@ function buildCalendar(rutina: Rutina4Semanas, sesiones: SesionLog[]): CalDay[][
   for (let w = 0; w < 4; w++) {
     const semanaData = rutina.semanas?.[w]
     const dias = semanaData?.dias ?? rutina.dias ?? []
-    // Map training days to weekday slots (same logic as HoyTab)
+    // ≤5 days → Mon–Fri (slots 0-4); 6+ days → full week (slots 0-6)
     const diasMap = new Map<number, DiaRutina>()
+    const total = dias.length
+    const maxSlot = total <= 5 ? 4 : 6
     dias.forEach((dia, i) => {
-      const slot = Math.round((i * 7) / dias.length)
+      const slot = total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1))
       diasMap.set(slot, dia)
     })
 

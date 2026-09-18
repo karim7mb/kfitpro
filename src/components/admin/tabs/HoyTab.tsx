@@ -33,17 +33,21 @@ function calcSemanaActual(fechaInicio?: string): number {
   return Math.min(4, Math.max(1, weeks + 1))
 }
 
+function weekdaySlot(i: number, total: number): number {
+  // ≤5 days → spread across Mon–Fri (slots 0-4); 6+ days → full week (slots 0-6)
+  const maxSlot = total <= 5 ? 4 : 6
+  return total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1))
+}
+
 function getTodayDia(rutina: Rutina4Semanas): DiaRutina | null {
   const semana = calcSemanaActual(rutina.fecha_inicio)
   const dias = rutina.semanas?.[semana - 1]?.dias ?? rutina.dias
   if (!dias?.length) return null
-  // Distribute training days across week evenly
   const dayIdx = getDayOfWeekIndex()
   const totalDias = dias.length
   const map: Record<number, number> = {}
   for (let i = 0; i < totalDias; i++) {
-    const slot = Math.round((i * 7) / totalDias)
-    map[slot] = i
+    map[weekdaySlot(i, totalDias)] = i
   }
   const diaIdx = map[dayIdx]
   return diaIdx !== undefined ? dias[diaIdx] : null
