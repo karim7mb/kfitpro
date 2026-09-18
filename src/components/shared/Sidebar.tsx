@@ -20,7 +20,7 @@ const navItems = [
 export default function Sidebar({ user, currentPage, onNavigate, onLogout }: SidebarProps) {
   return (
     <aside
-      className="fixed left-0 top-0 h-full w-64 flex flex-col z-10"
+      className="hidden md:flex fixed left-0 top-0 h-full w-64 flex-col z-10"
       style={{ background: '#161820', borderRight: '1px solid #1E2130' }}
     >
       {/* Logo */}
