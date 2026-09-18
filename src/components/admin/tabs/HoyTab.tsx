@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Circle, ChevronDown, ChevronUp, Save, Dumbbell, Moon, Droplets, Zap } from 'lucide-react'
+import { CheckCircle2, Circle, ChevronDown, ChevronUp, Save, Dumbbell } from 'lucide-react'
 import {
-  fetchRutina4Semanas, fetchSesionesLog, upsertSesionLog, upsertProgresoDiario, fetchProgresoDiario,
-  type Rutina4Semanas, type DiaRutina, type SesionLog, type SerieLog, type ProgresoDiario,
+  fetchRutina4Semanas, fetchSesionesLog, upsertSesionLog,
+  type Rutina4Semanas, type DiaRutina, type SesionLog, type SerieLog,
 } from '../../../lib/supabase'
 
 interface HoyTabProps {
@@ -11,30 +11,22 @@ interface HoyTabProps {
   onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
 }
 
-const SENSACIONES = [
-  { id: 'facil', label: 'Fácil', emoji: '😊', color: '#10B981' },
-  { id: 'justo', label: 'Justo', emoji: '😅', color: '#F59E0B' },
-  { id: 'brutal', label: 'Brutal', emoji: '💀', color: '#EF4444' },
-] as const
-
 function today(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function getDayOfWeekIndex(): number {
-  return (new Date().getDay() + 6) % 7 // 0=Mon, 6=Sun
+  return (new Date().getDay() + 6) % 7
 }
 
 function calcSemanaActual(fechaInicio?: string): number {
   if (!fechaInicio) return 1
   const ms = Date.now() - new Date(fechaInicio).getTime()
-  const weeks = Math.floor(ms / (1000 * 60 * 60 * 24 * 7))
-  return Math.min(4, Math.max(1, weeks + 1))
+  return Math.min(4, Math.max(1, Math.floor(ms / (1000 * 60 * 60 * 24 * 7)) + 1))
 }
 
 function weekdaySlot(i: number, total: number): number {
-  // ≤5 days → spread across Mon–Fri (slots 0-4); 6+ days → full week (slots 0-6)
   const maxSlot = total <= 5 ? 4 : 6
   return total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1))
 }
@@ -44,11 +36,8 @@ function getTodayDia(rutina: Rutina4Semanas): DiaRutina | null {
   const dias = rutina.semanas?.[semana - 1]?.dias ?? rutina.dias
   if (!dias?.length) return null
   const dayIdx = getDayOfWeekIndex()
-  const totalDias = dias.length
   const map: Record<number, number> = {}
-  for (let i = 0; i < totalDias; i++) {
-    map[weekdaySlot(i, totalDias)] = i
-  }
+  for (let i = 0; i < dias.length; i++) map[weekdaySlot(i, dias.length)] = i
   const diaIdx = map[dayIdx]
   return diaIdx !== undefined ? dias[diaIdx] : null
 }
@@ -60,28 +49,19 @@ interface EjercicioLogState {
 export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
   const [sesion, setSesion] = useState<SesionLog | null>(null)
-  const [progreso, setProgreso] = useState<ProgresoDiario | null>(null)
   const [ejLog, setEjLog] = useState<Record<string, EjercicioLogState>>({})
-  const [sensacion, setSensacion] = useState<'facil' | 'justo' | 'brutal' | null>(null)
-  const [notas, setNotas] = useState('')
   const [expandedEj, setExpandedEj] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [hidratacion, setHidratacion] = useState(0)
-  const [litrosInput, setLitrosInput] = useState<number | ''>('')
-  const [pasos, setPasos] = useState<number>(0)
-  const [horas_sueno, setHorasSueno] = useState<number | ''>('')
-  const [dolor, setDolor] = useState<number>(5)
   const [todayDia, setTodayDia] = useState<DiaRutina | null>(null)
   const [semanaActual, setSemanaActual] = useState(1)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [r, logs, progresos] = await Promise.all([
+      const [r, logs] = await Promise.all([
         isDemo ? null : fetchRutina4Semanas(clienteId),
         isDemo ? [] : fetchSesionesLog(clienteId),
-        isDemo ? [] : fetchProgresoDiario(clienteId, 7),
       ])
 
       setRutina(r)
@@ -96,8 +76,6 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
           const existing = logs.find(l => l.fecha === today() && l.dia_id === dia.id)
           if (existing) {
             setSesion(existing)
-            setSensacion(existing.sensacion ?? null)
-            setNotas(existing.notas ?? '')
             const initialLog: Record<string, EjercicioLogState> = {}
             dia.ejercicios.forEach(ej => {
               initialLog[ej.id] = {
@@ -113,16 +91,6 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
             setEjLog(initialLog)
           }
         }
-      }
-
-      const todayProg = progresos.find(p => p.fecha === today())
-      if (todayProg) {
-        setProgreso(todayProg)
-        setHidratacion(todayProg.hidratacion ?? 0)
-        setLitrosInput(todayProg.litros ?? todayProg.hidratacion ? (todayProg.hidratacion ?? 0) * 0.25 : '')
-        setPasos(todayProg.pasos ?? 0)
-        setHorasSueno(todayProg.horas_sueno ?? '')
-        setDolor(todayProg.dolor_corporal ?? 5)
       }
     } finally {
       setLoading(false)
@@ -152,9 +120,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
   }
 
   const seriesCompletadas: Record<string, SerieLog[]> = {}
-  Object.entries(ejLog).forEach(([id, state]) => {
-    seriesCompletadas[id] = state.series
-  })
+  Object.entries(ejLog).forEach(([id, state]) => { seriesCompletadas[id] = state.series })
 
   const totalSeries = Object.values(ejLog).reduce((s, e) => s + e.series.length, 0)
   const completadas = Object.values(ejLog).reduce((s, e) => s + e.series.filter(x => x.completada).length, 0)
@@ -164,7 +130,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
     if (!todayDia || isDemo) return
     setSaving(true)
     try {
-      const s: SesionLog = {
+      await upsertSesionLog({
         id: sesion?.id,
         cliente_id: clienteId,
         rutina_id: rutina?.id,
@@ -172,25 +138,11 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         dia_id: todayDia.id,
         fecha: today(),
         completada: pct === 100,
-        sensacion: sensacion ?? undefined,
-        notas: notas || undefined,
+        sensacion: sesion?.sensacion,
+        notas: sesion?.notas,
         series_completadas: seriesCompletadas,
-      }
-      await upsertSesionLog(s)
-
-      const p: ProgresoDiario = {
-        id: progreso?.id,
-        cliente_id: clienteId,
-        fecha: today(),
-        hidratacion,
-        litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
-        pasos: pasos > 0 ? pasos : undefined,
-        horas_sueno: horas_sueno !== '' ? Number(horas_sueno) : undefined,
-        dolor_corporal: dolor,
-      }
-      await upsertProgresoDiario(p)
-
-      onToast(pct === 100 ? '¡Sesión completada! 💪' : 'Sesión guardada', 'success')
+      })
+      onToast('Sesión guardada', 'success')
       load()
     } catch {
       onToast('Error al guardar', 'error')
@@ -226,30 +178,8 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         <div className="rounded-2xl p-6 text-center" style={{ background: '#1A1D2E', border: '1px solid #2a2d3e' }}>
           <span className="text-4xl">🛌</span>
           <p className="text-white font-semibold mt-3">Día de descanso</p>
-          <p className="text-gray-400 text-sm mt-1">Hoy no hay entrenamiento programado. ¡Recupera!</p>
+          <p className="text-gray-400 text-sm mt-1">Hoy no hay entrenamiento programado.</p>
         </div>
-        <RecuperacionBlock
-          hidratacion={hidratacion} setHidratacion={setHidratacion}
-          litrosInput={litrosInput} setLitrosInput={setLitrosInput}
-          pasos={pasos} setPasos={setPasos}
-          horas_sueno={horas_sueno} setHorasSueno={setHorasSueno}
-          dolor={dolor} setDolor={setDolor}
-          onSave={async () => {
-            if (isDemo) return
-            try {
-              await upsertProgresoDiario({
-                cliente_id: clienteId, fecha: today(),
-                hidratacion,
-                litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
-                pasos: pasos > 0 ? pasos : undefined,
-                horas_sueno: horas_sueno !== '' ? Number(horas_sueno) : undefined,
-                dolor_corporal: dolor,
-              })
-              onToast('Recuperación guardada', 'success')
-            } catch { onToast('Error', 'error') }
-          }}
-          saving={saving}
-        />
       </div>
     )
   }
@@ -271,6 +201,18 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
           />
         </div>
         <p className="text-gray-500 text-xs mt-2">{completadas} / {totalSeries} series completadas</p>
+
+        {sesion?.sensacion && (
+          <p className="text-xs mt-2" style={{ color: '#9ca3af' }}>
+            Sensación del cliente:{' '}
+            <span style={{ color: sesion.sensacion === 'facil' ? '#10B981' : sesion.sensacion === 'justo' ? '#F59E0B' : '#EF4444' }}>
+              {sesion.sensacion === 'facil' ? '😊 Fácil' : sesion.sensacion === 'justo' ? '😅 Justo' : '💀 Brutal'}
+            </span>
+          </p>
+        )}
+        {sesion?.notas && (
+          <p className="text-xs mt-1 italic" style={{ color: '#6b7280' }}>"{sesion.notas}"</p>
+        )}
       </div>
 
       {/* Exercises */}
@@ -288,7 +230,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
               <div className="flex items-center gap-3">
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{ background: done === ej.series ? '#10B981' + '20' : '#F5611A20', color: done === ej.series ? '#10B981' : '#F5611A' }}
+                  style={{ background: done === ej.series ? '#10B98120' : '#F5611A20', color: done === ej.series ? '#10B981' : '#F5611A' }}
                 >
                   {done === ej.series ? '✓' : `${done}/${ej.series}`}
                 </div>
@@ -342,46 +284,6 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         )
       })}
 
-      {/* Sensación */}
-      <div className="rounded-2xl p-4 space-y-3" style={{ background: '#1A1D2E', border: '1px solid #2a2d3e' }}>
-        <p className="text-white text-sm font-semibold">¿Cómo ha ido el entrenamiento?</p>
-        <div className="flex gap-2">
-          {SENSACIONES.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSensacion(sensacion === s.id ? null : s.id)}
-              className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl cursor-pointer transition-all"
-              style={{
-                background: sensacion === s.id ? s.color + '25' : '#262940',
-                border: `1px solid ${sensacion === s.id ? s.color : '#2a2d3e'}`,
-              }}
-            >
-              <span className="text-xl">{s.emoji}</span>
-              <span className="text-xs font-medium" style={{ color: sensacion === s.id ? s.color : '#9ca3af' }}>{s.label}</span>
-            </button>
-          ))}
-        </div>
-        <textarea
-          placeholder="Notas opcionales sobre la sesión…"
-          value={notas}
-          onChange={e => setNotas(e.target.value)}
-          rows={2}
-          className="w-full rounded-xl px-3 py-2 text-sm text-white outline-none resize-none"
-          style={{ background: '#262940', border: '1px solid #2a2d3e' }}
-        />
-      </div>
-
-      <RecuperacionBlock
-        hidratacion={hidratacion} setHidratacion={setHidratacion}
-        litrosInput={litrosInput} setLitrosInput={setLitrosInput}
-        pasos={pasos} setPasos={setPasos}
-        horas_sueno={horas_sueno} setHorasSueno={setHorasSueno}
-        dolor={dolor} setDolor={setDolor}
-        onSave={() => Promise.resolve()}
-        saving={false}
-        inline
-      />
-
       <button
         onClick={saveSession}
         disabled={saving || isDemo}
@@ -389,7 +291,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         style={{ background: pct === 100 ? '#10B981' : '#F5611A' }}
       >
         <Save size={18} />
-        {saving ? 'Guardando…' : pct === 100 ? '¡Sesión completada! Guardar' : 'Guardar progreso'}
+        {saving ? 'Guardando…' : 'Guardar sesión'}
       </button>
     </div>
   )
@@ -407,150 +309,6 @@ function SemanaHeader({ semana, descripcion }: { semana: number; descripcion: st
       <p className="text-gray-400 text-xs mt-1">
         {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
       </p>
-    </div>
-  )
-}
-
-interface RecuperacionBlockProps {
-  hidratacion: number
-  setHidratacion: (n: number) => void
-  litrosInput: number | ''
-  setLitrosInput: (n: number | '') => void
-  pasos: number
-  setPasos: (n: number) => void
-  horas_sueno: number | ''
-  setHorasSueno: (n: number | '') => void
-  dolor: number
-  setDolor: (n: number) => void
-  onSave: () => Promise<void>
-  saving: boolean
-  inline?: boolean
-}
-
-const PASOS_META = 10000
-
-function RecuperacionBlock({ hidratacion, setHidratacion, litrosInput, setLitrosInput, pasos, setPasos, horas_sueno, setHorasSueno, dolor, setDolor, onSave, saving, inline }: RecuperacionBlockProps) {
-  function handleVasos(vasos: number) {
-    setHidratacion(vasos)
-    setLitrosInput(parseFloat((vasos * 0.25).toFixed(2)))
-  }
-
-  function handleLitros(val: string) {
-    if (val === '') { setLitrosInput(''); return }
-    const l = parseFloat(val)
-    if (isNaN(l)) return
-    setLitrosInput(l)
-    setHidratacion(Math.round(l / 0.25))
-  }
-
-  return (
-    <div className="rounded-2xl p-4 space-y-4" style={{ background: '#1A1D2E', border: '1px solid #2a2d3e' }}>
-      <p className="text-white text-sm font-semibold flex items-center gap-2"><Zap size={14} style={{ color: '#F5611A' }} /> Recuperación</p>
-
-      {/* Hydration */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-xs flex items-center gap-1"><Droplets size={12} /> Hidratación</span>
-          <span className="text-xs font-mono text-white">{hidratacion} vasos</span>
-        </div>
-        <div className="flex gap-1.5 flex-wrap mb-2">
-          {Array.from({ length: 8 }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => handleVasos(hidratacion === i + 1 ? i : i + 1)}
-              className="w-8 h-8 rounded-full text-xs cursor-pointer transition-all"
-              style={{ background: i < hidratacion ? '#3B82F6' : '#262940', color: i < hidratacion ? 'white' : '#9ca3af' }}
-            >
-              💧
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={0}
-            max={4}
-            step={0.25}
-            placeholder="0.00"
-            value={litrosInput}
-            onChange={e => handleLitros(e.target.value)}
-            className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
-            style={{ background: '#262940', border: '1px solid #2a2d3e' }}
-          />
-          <span className="text-gray-400 text-xs">litros · 1 vaso = 0.25 L</span>
-        </div>
-      </div>
-
-      {/* Steps */}
-      <div>
-        <div className="flex justify-between mb-2">
-          <span className="text-gray-400 text-xs">👟 Pasos diarios</span>
-          <span className="text-xs font-mono" style={{ color: pasos >= PASOS_META ? '#10B981' : pasos >= 5000 ? '#F59E0B' : '#9ca3af' }}>
-            {pasos.toLocaleString('es-ES')}
-          </span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={20000}
-          step={100}
-          value={pasos}
-          onChange={e => setPasos(Number(e.target.value))}
-          className="w-full accent-orange-500"
-        />
-        <div className="flex justify-between text-xs text-gray-600 mt-1">
-          <span>0</span><span>20.000</span>
-        </div>
-      </div>
-
-      {/* Sleep */}
-      <div>
-        <span className="text-gray-400 text-xs flex items-center gap-1 mb-2"><Moon size={12} /> Horas de sueño</span>
-        <div className="flex gap-2 items-center">
-          <input
-            type="number"
-            min={0}
-            max={14}
-            step={0.5}
-            placeholder="7.5"
-            value={horas_sueno}
-            onChange={e => setHorasSueno(e.target.value === '' ? '' : Number(e.target.value))}
-            className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
-            style={{ background: '#262940', border: '1px solid #2a2d3e' }}
-          />
-          <span className="text-gray-400 text-xs">horas</span>
-        </div>
-      </div>
-
-      {/* Soreness */}
-      <div>
-        <div className="flex justify-between mb-2">
-          <span className="text-gray-400 text-xs">Dolor muscular</span>
-          <span className="text-xs font-mono" style={{ color: dolor > 7 ? '#EF4444' : dolor > 4 ? '#F59E0B' : '#10B981' }}>{dolor}/10</span>
-        </div>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          value={dolor}
-          onChange={e => setDolor(Number(e.target.value))}
-          className="w-full accent-orange-500"
-        />
-        <div className="flex justify-between text-xs text-gray-600 mt-1">
-          <span>Sin dolor</span><span>Muy intenso</span>
-        </div>
-      </div>
-
-      {!inline && (
-        <button
-          onClick={onSave}
-          disabled={saving}
-          className="w-full py-2.5 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-50"
-          style={{ background: '#262940', color: '#F5611A', border: '1px solid #F5611A33' }}
-        >
-          {saving ? 'Guardando…' : 'Guardar recuperación'}
-        </button>
-      )}
     </div>
   )
 }
