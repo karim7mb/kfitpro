@@ -85,8 +85,8 @@ export default async function handler(req: Request): Promise<Response> {
       : ''
 
     const generoLine = genero === 'mujer'
-      ? '\n- Género: Mujer — prioriza glúteos e isquiotibiales: hip thrust, sentadilla búlgara, RDL, abducción de cadera, zancadas. En tren superior: reduce carga en compuestos pesados, añade más trabajo de hombros y brazos con rangos altos.'
-      : '\n- Género: Hombre — equilibrio general con énfasis en tren superior (press, jalones, remo) y pierna completa.'
+      ? '\n- Género: Mujer — PRIORIDAD PIERNA/GLÚTEO sobre tren superior. Días Lower: 6-7 ejercicios (glúteos, isquios, cuáds — hip thrust, sentadilla búlgara, RDL, abducción cadera, curl femoral sentado, extensión cuáds). Días Upper: 4-5 ejercicios más ligeros (sin compuestos pesados de pecho/espalda, más hombros y brazos en rangos altos 12-20 reps). Volumen de piernas 60-70% del total semanal.'
+      : '\n- Género: Hombre — PRIORIDAD TREN SUPERIOR sobre piernas. Días Upper: 6-7 ejercicios (pecho, espalda, hombros, brazos — máximo volumen). Días Lower: 4-5 ejercicios funcionales (1-2 compuestos de pierna + isquios + glúteo básico). Volumen de tren superior 60-70% del total semanal.'
 
     const equipLabels: Record<string, string> = {
       gimnasio_completo: 'Gimnasio completo: barras, mancuernas, poleas, cables, máquinas. Todos los ejercicios disponibles.',
