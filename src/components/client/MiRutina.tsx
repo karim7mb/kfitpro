@@ -60,7 +60,6 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const [sessionDone, setSessionDone] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSesionDate, setLastSesionDate] = useState<string | null>(null)
-  // Per-exercise client overrides (name, series, reps) — session only
   const [ejOverrides, setEjOverrides] = useState<Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }>>({})
   const [editingEj, setEditingEj] = useState<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number } | null>(null)
   const [progreso, setProgreso] = useState<ProgresoDiario | null>(null)
@@ -118,6 +117,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const totalSeries = todayWorkout?.ejercicios.reduce((acc, e) => acc + (ejOverrides[e.id]?.series ?? e.series), 0) ?? 0
   const doneCount = Object.values(seriesDone).filter(Boolean).length
   const allDone = totalSeries > 0 && doneCount >= totalSeries
+  const todayAlreadySaved = lastSesionDate === todayDateStr()
 
   const toggleSerie = (key: string) => {
     setSeriesDone(prev => ({ ...prev, [key]: !prev[key] }))
@@ -140,6 +140,14 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
     setPesos(newPesos)
     setReps(newReps)
     setLastSesionDate(last.fecha)
+    // If today's session, also restore which series were marked done
+    if (last.fecha === todayDateStr()) {
+      const newDone: Record<string, boolean> = {}
+      for (const [ejId, series] of Object.entries(last.series_completadas)) {
+        series.forEach((s, idx) => { newDone[serieKey(ejId, idx)] = s.completada })
+      }
+      setSeriesDone(newDone)
+    }
   }, [userId, demo])
 
   const selectDay = (idx: number) => {
@@ -156,22 +164,9 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const saveEjEdit = () => {
     if (!editingEj) return
     setEjOverrides(prev => ({ ...prev, [editingEj.id]: { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } }))
-    // Reset series done/pesos/reps for this exercise if series count changed
-    setSeriesDone(prev => {
-      const next = { ...prev }
-      Object.keys(next).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete next[k] })
-      return next
-    })
-    setPesos(prev => {
-      const next = { ...prev }
-      Object.keys(next).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete next[k] })
-      return next
-    })
-    setReps(prev => {
-      const next = { ...prev }
-      Object.keys(next).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete next[k] })
-      return next
-    })
+    setSeriesDone(prev => { const n = { ...prev }; Object.keys(n).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete n[k] }); return n })
+    setPesos(prev => { const n = { ...prev }; Object.keys(n).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete n[k] }); return n })
+    setReps(prev => { const n = { ...prev }; Object.keys(n).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete n[k] }); return n })
     setEditingEj(null)
   }
 
@@ -183,7 +178,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
           feeling >= 7 ? 'facil' : feeling >= 4 ? 'justo' : 'brutal'
         const seriesMap: Record<string, { serie: number; reps?: number; peso?: number; completada: boolean }[]> = {}
         for (const ej of todayWorkout.ejercicios) {
-          seriesMap[ej.id] = Array.from({ length: ej.series }, (_, i) => {
+          seriesMap[ej.id] = Array.from({ length: ejOverrides[ej.id]?.series ?? ej.series }, (_, i) => {
             const k = serieKey(ej.id, i)
             return { serie: i + 1, reps: reps[k] ? Number(reps[k]) : undefined, peso: pesos[k] ? Number(pesos[k]) : undefined, completada: seriesDone[k] ?? false }
           })
@@ -217,7 +212,6 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
     onToast('¡Sesión guardada! 🎉', 'success')
   }
 
-  // Week dots
   const weekDots = (() => {
     const slots = new Set<number>()
     const total = dias.length
@@ -270,6 +264,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
         })}
       </div>
 
+      {/* Main section */}
       {sessionDone ? (
         <div className="mx-4 rounded-2xl p-10 flex flex-col items-center gap-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
           <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.15)' }}>
@@ -292,7 +287,10 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
               <div>
                 <p className="font-bold text-white text-sm">{todayWorkout.titulo || todayWorkout.nombre}</p>
                 <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>{rutina.nombre} · Semana {semanaActual}/4</p>
-                {lastSesionDate && (
+                {todayAlreadySaved && (
+                  <p className="text-xs mt-0.5 font-medium" style={{ color: '#10B981' }}>✓ Sesión de hoy ya registrada</p>
+                )}
+                {!todayAlreadySaved && lastSesionDate && (
                   <p className="text-xs mt-0.5" style={{ color: '#10B981' }}>
                     ↺ Pesos de {new Date(lastSesionDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                   </p>
@@ -302,12 +300,10 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                 {doneCount}/{totalSeries}
               </span>
             </div>
-            {/* Progress bar */}
             <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: '#1E2130' }}>
               <div className="h-full rounded-full transition-all duration-500"
-                style={{ width: totalSeries > 0 ? `${(doneCount / totalSeries) * 100}%` : '0%', background: '#F5611A' }} />
+                style={{ width: totalSeries > 0 ? `${(doneCount / totalSeries) * 100}%` : '0%', background: allDone ? '#10B981' : '#F5611A' }} />
             </div>
-            {/* Save button always visible here */}
             <button onClick={() => setShowFeedback(true)}
               className="w-full py-2.5 rounded-xl font-bold cursor-pointer text-sm"
               style={{ background: allDone ? '#F5611A' : '#1E2130', border: allDone ? 'none' : '1px solid #2a2d3e', color: allDone ? 'white' : '#9CA3AF' }}>
@@ -326,7 +322,6 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
               const ejDone = Array.from({ length: series }, (_, i) => seriesDone[serieKey(ej.id, i)] ?? false).every(Boolean)
               return (
                 <div key={ej.id} className="rounded-2xl overflow-hidden" style={{ background: '#161820', border: `1px solid ${ejDone ? 'rgba(16,185,129,0.3)' : '#1E2130'}` }}>
-                  {/* Exercise header */}
                   <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: '1px solid #1E2130' }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                       style={{ background: ejDone ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: ejDone ? '#10B981' : '#F5611A' }}>
@@ -342,45 +337,30 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                       onClick={() => setEditingEj({ id: ej.id, nombre, series, repsMin, repsMax })}
                       className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
                       style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7280' }}
-                      title="Editar ejercicio"
                     >
                       <Pencil style={{ width: 13, height: 13 }} />
                     </button>
                   </div>
-
-                  {/* Series */}
                   <div className="p-3 space-y-2">
                     {Array.from({ length: series }, (_, i) => {
                       const k = serieKey(ej.id, i)
                       const done = seriesDone[k] ?? false
                       return (
                         <div key={k} className="rounded-xl p-3" style={{ background: done ? 'rgba(16,185,129,0.07)' : '#0D0E13', border: `1px solid ${done ? 'rgba(16,185,129,0.25)' : '#1E2130'}` }}>
-                          {/* Row top: number + done button */}
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold" style={{ color: done ? '#10B981' : '#6B7280' }}>
-                              Serie {i + 1}
-                            </span>
+                            <span className="text-xs font-bold" style={{ color: done ? '#10B981' : '#6B7280' }}>Serie {i + 1}</span>
                             <button
                               onClick={() => toggleSerie(k)}
                               className="px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all"
-                              style={{
-                                background: done ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)',
-                                color: done ? '#10B981' : '#F5611A',
-                                border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : 'rgba(245,97,26,0.3)'}`,
-                              }}
+                              style={{ background: done ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: done ? '#10B981' : '#F5611A', border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : 'rgba(245,97,26,0.3)'}` }}
                             >
                               {done ? '✓ Lista' : 'Marcar lista'}
                             </button>
                           </div>
-                          {/* Inputs row */}
                           <div className="flex gap-3">
                             <div className="flex-1">
                               <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Peso (kg)</label>
-                              <input
-                                type="number"
-                                inputMode="decimal"
-                                placeholder="0"
-                                value={pesos[k] ?? ''}
+                              <input type="number" inputMode="decimal" placeholder="0" value={pesos[k] ?? ''}
                                 onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
                                 disabled={done}
                                 className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white outline-none text-center"
@@ -389,11 +369,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                             </div>
                             <div className="flex-1">
                               <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Reps</label>
-                              <input
-                                type="number"
-                                inputMode="numeric"
-                                placeholder="0"
-                                value={reps[k] ?? ''}
+                              <input type="number" inputMode="numeric" placeholder="0" value={reps[k] ?? ''}
                                 onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
                                 disabled={done}
                                 className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white outline-none text-center"
@@ -409,84 +385,113 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
               )
             })}
           </div>
-
-          {/* Recuperación */}
-          <div className="mx-4 mb-3 rounded-2xl p-4 space-y-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
-            <p className="text-sm font-semibold text-white flex items-center gap-2">
-              <Zap size={14} style={{ color: '#F5611A' }} /> Recuperación de hoy
-            </p>
-            {/* Hidratación */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs flex items-center gap-1" style={{ color: '#6B7280' }}><Droplets size={12} /> Hidratación</span>
-                <span className="text-xs font-mono text-white">{hidratacion} vasos</span>
-              </div>
-              <div className="flex gap-1.5 flex-wrap mb-2">
-                {Array.from({ length: 8 }, (_, i) => (
-                  <button key={i}
-                    onClick={() => { const v = hidratacion === i + 1 ? i : i + 1; setHidratacion(v); setLitrosInput(parseFloat((v * 0.25).toFixed(2))) }}
-                    className="w-8 h-8 rounded-full text-xs cursor-pointer transition-all"
-                    style={{ background: i < hidratacion ? '#3B82F6' : '#1E2130', color: i < hidratacion ? 'white' : '#6B7280' }}>
-                    💧
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="number" min={0} max={4} step={0.25} placeholder="0.00" value={litrosInput}
-                  onChange={e => { const l = parseFloat(e.target.value); if (!isNaN(l)) { setLitrosInput(l); setHidratacion(Math.round(l / 0.25)) } else setLitrosInput('') }}
-                  className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
-                  style={{ background: '#0D0E13', border: '1px solid #1E2130' }} />
-                <span className="text-xs" style={{ color: '#6B7280' }}>litros · 1 vaso = 0.25 L</span>
-              </div>
-            </div>
-            {/* Pasos */}
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-xs" style={{ color: '#6B7280' }}>👟 Pasos diarios</span>
-                <span className="text-xs font-mono" style={{ color: pasos >= 10000 ? '#10B981' : pasos >= 5000 ? '#F59E0B' : '#9ca3af' }}>{pasos.toLocaleString('es-ES')}</span>
-              </div>
-              <input type="range" min={0} max={20000} step={100} value={pasos} onChange={e => setPasos(Number(e.target.value))} className="w-full accent-orange-500" />
-              <div className="flex justify-between text-xs mt-1" style={{ color: '#4B5563' }}><span>0</span><span>20.000</span></div>
-            </div>
-            {/* Sueño */}
-            <div>
-              <span className="text-xs flex items-center gap-1 mb-2" style={{ color: '#6B7280' }}><Moon size={12} /> Horas de sueño</span>
-              <div className="flex items-center gap-2">
-                <input type="number" min={0} max={14} step={0.5} placeholder="7.5" value={horasSueno}
-                  onChange={e => setHorasSueno(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
-                  style={{ background: '#0D0E13', border: '1px solid #1E2130' }} />
-                <span className="text-xs" style={{ color: '#6B7280' }}>horas</span>
-              </div>
-            </div>
-            {/* Dolor */}
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-xs" style={{ color: '#6B7280' }}>Dolor muscular</span>
-                <span className="text-xs font-mono" style={{ color: dolor > 7 ? '#EF4444' : dolor > 4 ? '#F59E0B' : '#10B981' }}>{dolor}/10</span>
-              </div>
-              <input type="range" min={1} max={10} value={dolor} onChange={e => setDolor(Number(e.target.value))} className="w-full accent-orange-500" />
-              <div className="flex justify-between text-xs mt-1" style={{ color: '#4B5563' }}><span>Sin dolor</span><span>Muy intenso</span></div>
-            </div>
-          </div>
-
-          {/* Week strip */}
-          <div className="mx-4 rounded-2xl p-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
-            <h3 className="font-semibold text-white mb-4 text-sm">Esta semana</h3>
-            <div className="flex gap-2 justify-between">
-              {weekDots.map(({ label, isToday, isTraining, isDone }) => (
-                <div key={label} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs" style={{ color: '#4B5563' }}>{label}</span>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ background: isToday ? '#F5611A' : isDone ? 'rgba(16,185,129,0.2)' : isTraining ? 'rgba(245,97,26,0.1)' : '#1E2130', color: isToday ? 'white' : isDone ? '#10B981' : isTraining ? '#F5611A' : '#4B5563', border: isToday ? '2px solid #F5611A' : 'none' }}>
-                    {isDone ? '✓' : isTraining ? '●' : '·'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </>
-      ) : null}
+      ) : (
+        /* Rest day */
+        <div className="mx-4 mb-4 rounded-2xl p-6 flex flex-col items-center gap-2" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+          <span className="text-4xl">🛌</span>
+          <p className="font-bold text-white">Día de descanso</p>
+          <p className="text-sm text-center" style={{ color: '#6B7280' }}>No hay entrenamiento programado para hoy. ¡Recupera!</p>
+        </div>
+      )}
+
+      {/* Recuperación — always visible */}
+      <div className="mx-4 mb-3 rounded-2xl p-4 space-y-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+        <p className="text-sm font-semibold text-white flex items-center gap-2">
+          <Zap size={14} style={{ color: '#F5611A' }} /> Recuperación de hoy
+        </p>
+        {/* Hidratación */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs flex items-center gap-1" style={{ color: '#6B7280' }}><Droplets size={12} /> Hidratación</span>
+            <span className="text-xs font-mono text-white">{hidratacion} vasos</span>
+          </div>
+          <div className="flex gap-1.5 flex-wrap mb-2">
+            {Array.from({ length: 8 }, (_, i) => (
+              <button key={i}
+                onClick={() => { const v = hidratacion === i + 1 ? i : i + 1; setHidratacion(v); setLitrosInput(parseFloat((v * 0.25).toFixed(2))) }}
+                className="w-8 h-8 rounded-full text-xs cursor-pointer transition-all"
+                style={{ background: i < hidratacion ? '#3B82F6' : '#1E2130', color: i < hidratacion ? 'white' : '#6B7280' }}>
+                💧
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="number" min={0} max={4} step={0.25} placeholder="0.00" value={litrosInput}
+              onChange={e => { const l = parseFloat(e.target.value); if (!isNaN(l)) { setLitrosInput(l); setHidratacion(Math.round(l / 0.25)) } else setLitrosInput('') }}
+              className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
+              style={{ background: '#0D0E13', border: '1px solid #1E2130' }} />
+            <span className="text-xs" style={{ color: '#6B7280' }}>litros · 1 vaso = 0.25 L</span>
+          </div>
+        </div>
+        {/* Pasos */}
+        <div>
+          <div className="flex justify-between mb-2">
+            <span className="text-xs" style={{ color: '#6B7280' }}>👟 Pasos diarios</span>
+            <span className="text-xs font-mono" style={{ color: pasos >= 10000 ? '#10B981' : pasos >= 5000 ? '#F59E0B' : '#9ca3af' }}>{pasos.toLocaleString('es-ES')}</span>
+          </div>
+          <input type="range" min={0} max={20000} step={100} value={pasos} onChange={e => setPasos(Number(e.target.value))} className="w-full accent-orange-500" />
+          <div className="flex justify-between text-xs mt-1" style={{ color: '#4B5563' }}><span>0</span><span>20.000</span></div>
+        </div>
+        {/* Sueño */}
+        <div>
+          <span className="text-xs flex items-center gap-1 mb-2" style={{ color: '#6B7280' }}><Moon size={12} /> Horas de sueño</span>
+          <div className="flex items-center gap-2">
+            <input type="number" min={0} max={14} step={0.5} placeholder="7.5" value={horasSueno}
+              onChange={e => setHorasSueno(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-20 rounded-xl px-3 py-1.5 text-sm text-white outline-none text-center"
+              style={{ background: '#0D0E13', border: '1px solid #1E2130' }} />
+            <span className="text-xs" style={{ color: '#6B7280' }}>horas</span>
+          </div>
+        </div>
+        {/* Dolor */}
+        <div>
+          <div className="flex justify-between mb-2">
+            <span className="text-xs" style={{ color: '#6B7280' }}>Dolor muscular</span>
+            <span className="text-xs font-mono" style={{ color: dolor > 7 ? '#EF4444' : dolor > 4 ? '#F59E0B' : '#10B981' }}>{dolor}/10</span>
+          </div>
+          <input type="range" min={1} max={10} value={dolor} onChange={e => setDolor(Number(e.target.value))} className="w-full accent-orange-500" />
+          <div className="flex justify-between text-xs mt-1" style={{ color: '#4B5563' }}><span>Sin dolor</span><span>Muy intenso</span></div>
+        </div>
+        {/* Save recovery on rest days or when no workout */}
+        {!todayWorkout && (
+          <button
+            onClick={async () => {
+              if (demo) return
+              try {
+                await upsertProgresoDiario({
+                  id: progreso?.id, cliente_id: userId, fecha: todayDateStr(),
+                  hidratacion,
+                  litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
+                  pasos: pasos > 0 ? pasos : undefined,
+                  horas_sueno: horasSueno !== '' ? Number(horasSueno) : undefined,
+                  dolor_corporal: dolor,
+                })
+                onToast('Recuperación guardada', 'success')
+              } catch { onToast('Error al guardar', 'error') }
+            }}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+            style={{ background: '#1E2130', color: '#F5611A', border: '1px solid rgba(245,97,26,0.3)' }}>
+            Guardar recuperación
+          </button>
+        )}
+      </div>
+
+      {/* Week strip — always visible */}
+      <div className="mx-4 rounded-2xl p-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+        <h3 className="font-semibold text-white mb-4 text-sm">Esta semana</h3>
+        <div className="flex gap-2 justify-between">
+          {weekDots.map(({ label, isToday, isTraining, isDone }) => (
+            <div key={label} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-xs" style={{ color: '#4B5563' }}>{label}</span>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ background: isToday ? '#F5611A' : isDone ? 'rgba(16,185,129,0.2)' : isTraining ? 'rgba(245,97,26,0.1)' : '#1E2130', color: isToday ? 'white' : isDone ? '#10B981' : isTraining ? '#F5611A' : '#4B5563', border: isToday ? '2px solid #F5611A' : 'none' }}>
+                {isDone ? '✓' : isTraining ? '●' : '·'}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Edit exercise modal */}
       {editingEj && (
@@ -498,46 +503,26 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                 <X style={{ width: 20, height: 20 }} />
               </button>
             </div>
-
             <label className="text-xs mb-1.5 block" style={{ color: '#9CA3AF' }}>Nombre del ejercicio</label>
-            <input
-              type="text"
-              value={editingEj.nombre}
+            <input type="text" value={editingEj.nombre}
               onChange={e => setEditingEj(prev => prev ? { ...prev, nombre: e.target.value } : null)}
               className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none mb-4"
-              style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
-            />
-
+              style={{ background: '#1E2130', border: '1px solid #2a2d3e' }} />
             <div className="grid grid-cols-3 gap-3 mb-6">
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: '#9CA3AF' }}>Series</label>
-                <input type="number" min={1} max={10}
-                  value={editingEj.series}
-                  onChange={e => setEditingEj(prev => prev ? { ...prev, series: Math.max(1, Number(e.target.value)) } : null)}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none text-center"
-                  style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
-                />
-              </div>
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: '#9CA3AF' }}>Reps mín</label>
-                <input type="number" min={1}
-                  value={editingEj.repsMin}
-                  onChange={e => setEditingEj(prev => prev ? { ...prev, repsMin: Math.max(1, Number(e.target.value)) } : null)}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none text-center"
-                  style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
-                />
-              </div>
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: '#9CA3AF' }}>Reps máx</label>
-                <input type="number" min={1}
-                  value={editingEj.repsMax}
-                  onChange={e => setEditingEj(prev => prev ? { ...prev, repsMax: Math.max(1, Number(e.target.value)) } : null)}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none text-center"
-                  style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
-                />
-              </div>
+              {[
+                { label: 'Series', key: 'series' as const, min: 1, max: 10 },
+                { label: 'Reps mín', key: 'repsMin' as const, min: 1, max: 30 },
+                { label: 'Reps máx', key: 'repsMax' as const, min: 1, max: 30 },
+              ].map(({ label, key, min, max }) => (
+                <div key={key}>
+                  <label className="text-xs mb-1.5 block" style={{ color: '#9CA3AF' }}>{label}</label>
+                  <input type="number" min={min} max={max} value={editingEj[key]}
+                    onChange={e => setEditingEj(prev => prev ? { ...prev, [key]: Math.max(min, Number(e.target.value)) } : null)}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none text-center"
+                    style={{ background: '#1E2130', border: '1px solid #2a2d3e' }} />
+                </div>
+              ))}
             </div>
-
             <div className="flex gap-3">
               <button onClick={() => { setEjOverrides(prev => { const n = { ...prev }; delete n[editingEj.id]; return n }); setEditingEj(null) }}
                 className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: '#1E2130', color: '#6B7280' }}>
@@ -555,21 +540,16 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
       {/* Feedback modal */}
       {showFeedback && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
-          <div className="w-full rounded-t-3xl p-6 pb-10" style={{ background: '#161820', border: '1px solid #1E2130', maxWidth: 480 }}>
+          <div className="w-full rounded-t-3xl p-6 pb-10 overflow-y-auto" style={{ background: '#161820', border: '1px solid #1E2130', maxWidth: 480, maxHeight: '90vh' }}>
             <div className="w-10 h-1 rounded-full mx-auto mb-6" style={{ background: '#2a2d3e' }} />
             <h3 className="font-bold text-white text-lg mb-1">¿Cómo fue la sesión?</h3>
             <p className="text-sm mb-6" style={{ color: '#6B7280' }}>Tu entrenador verá tu feedback</p>
 
-            {/* Fecha */}
             <p className="text-sm font-medium text-white mb-2">Fecha del entrenamiento</p>
-            <input
-              type="date"
-              value={sessionDate}
-              max={todayDateStr()}
+            <input type="date" value={sessionDate} max={todayDateStr()}
               onChange={e => setSessionDate(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none mb-6 cursor-pointer"
-              style={{ background: '#1E2130', border: '1px solid #2a2d3e', colorScheme: 'dark' }}
-            />
+              style={{ background: '#1E2130', border: '1px solid #2a2d3e', colorScheme: 'dark' }} />
 
             <p className="text-sm font-medium text-white mb-3">Sensación general</p>
             <div className="flex gap-1.5 mb-3">

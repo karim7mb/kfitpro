@@ -65,6 +65,9 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
   const [plan, setPlan] = useState<PlanNutricional | null>(null)
   const [loading, setLoading] = useState(!demo)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [eaten, setEaten] = useState<Record<string, boolean>>({})
+
+  const toggleEaten = (id: string) => setEaten(prev => ({ ...prev, [id]: !prev[id] }))
 
   useEffect(() => {
     if (demo) { setPlan(DEMO_PLAN); return }
@@ -91,15 +94,13 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
     </div>
   )
 
-  const ahoraStr = new Date().toTimeString().slice(0, 5) // "HH:MM"
+  const ahoraStr = new Date().toTimeString().slice(0, 5)
+  const proximaComida = plan.comidas.find(c => !eaten[c.id] && c.hora > ahoraStr)
 
-  const comidaPasada = (hora: string) => hora <= ahoraStr
-  const proximaComida = plan.comidas.find(c => c.hora > ahoraStr)
-
-  const consumidoCal = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.calorias, 0), 0)
-  const consumidoProt = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.proteinas, 0), 0)
-  const consumidoCarbs = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.carbos, 0), 0)
-  const consumidoGrasas = plan.comidas.filter(c => comidaPasada(c.hora)).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.grasas, 0), 0)
+  const consumidoCal = plan.comidas.filter(c => eaten[c.id]).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.calorias, 0), 0)
+  const consumidoProt = plan.comidas.filter(c => eaten[c.id]).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.proteinas, 0), 0)
+  const consumidoCarbs = plan.comidas.filter(c => eaten[c.id]).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.carbos, 0), 0)
+  const consumidoGrasas = plan.comidas.filter(c => eaten[c.id]).reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.grasas, 0), 0)
 
   const pctCal = Math.min((consumidoCal / plan.calorias_objetivo) * 100, 100)
 
@@ -162,39 +163,50 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
           const cal = comida.alimentos.reduce((s, a) => s + a.calorias, 0)
           const prot = comida.alimentos.reduce((s, a) => s + a.proteinas, 0)
           const isOpen = expanded[comida.id] ?? false
-          const pasada = comidaPasada(comida.hora)
+          const isEaten = eaten[comida.id] ?? false
           const esProxima = proximaComida?.id === comida.id
 
           return (
             <div key={comida.id} className="rounded-2xl overflow-hidden" style={{
               background: '#161820',
-              border: `1px solid ${esProxima ? '#F5611A55' : pasada ? '#10B98133' : '#1E2130'}`,
-              opacity: !pasada && !esProxima ? 0.6 : 1,
+              border: `1px solid ${isEaten ? '#10B98133' : esProxima ? '#F5611A55' : '#1E2130'}`,
             }}>
-              <button
-                onClick={() => setExpanded(p => ({ ...p, [comida.id]: !isOpen }))}
-                className="w-full flex items-center gap-3 px-5 py-4 cursor-pointer text-left"
-              >
+              <div className="flex items-center gap-3 px-5 py-4">
+                {/* Mark eaten button */}
+                <button
+                  onClick={() => toggleEaten(comida.id)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
+                  style={{ background: isEaten ? 'rgba(16,185,129,0.2)' : '#1E2130', border: `2px solid ${isEaten ? '#10B981' : '#2a2d3e'}` }}
+                >
+                  {isEaten && <span style={{ color: '#10B981', fontSize: 12 }}>✓</span>}
+                </button>
+                <button
+                  onClick={() => setExpanded(p => ({ ...p, [comida.id]: !isOpen }))}
+                  className="flex-1 text-left cursor-pointer"
+                >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white text-sm">{comida.nombre}</span>
+                    <span className="font-semibold text-white text-sm" style={{ textDecoration: isEaten ? 'line-through' : 'none', opacity: isEaten ? 0.6 : 1 }}>{comida.nombre}</span>
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#1E2130', color: '#6B7280' }}>{comida.hora}</span>
-                    {pasada && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>✓</span>}
-                    {esProxima && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(245,97,26,0.15)', color: '#F5611A' }}>Próxima</span>}
+                    {esProxima && !isEaten && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(245,97,26,0.15)', color: '#F5611A' }}>Próxima</span>}
                   </div>
                   <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
                     {comida.alimentos.length} alimentos · {prot}g prot
                   </div>
                 </div>
-                <div className="text-right mr-2">
-                  <div className="font-bold text-sm" style={{ color: '#F5611A' }}>{cal}</div>
+                </div>
+                </button>
+                <div className="text-right mr-2 flex-shrink-0">
+                  <div className="font-bold text-sm" style={{ color: isEaten ? '#10B981' : '#F5611A' }}>{cal}</div>
                   <div className="text-xs" style={{ color: '#4B5563' }}>kcal</div>
                 </div>
-                {isOpen
-                  ? <ChevronUp style={{ width: 16, height: 16, color: '#4B5563', flexShrink: 0 }} />
-                  : <ChevronDown style={{ width: 16, height: 16, color: '#4B5563', flexShrink: 0 }} />
-                }
-              </button>
+                <button onClick={() => setExpanded(p => ({ ...p, [comida.id]: !isOpen }))} className="cursor-pointer flex-shrink-0">
+                  {isOpen
+                    ? <ChevronUp style={{ width: 16, height: 16, color: '#4B5563' }} />
+                    : <ChevronDown style={{ width: 16, height: 16, color: '#4B5563' }} />
+                  }
+                </button>
+              </div>
 
               {isOpen && comida.foto_url && (
                 <div className="px-5 pb-3">

@@ -6,7 +6,8 @@ import {
   fetchMedidasCorporales, addMedidaCorporal,
   fetchRegistrosRendimiento, addRegistroRendimiento,
   fetchFotosProgreso, uploadFotoProgreso,
-  type PesoEntry, type MedidaCorporal, type RegistroRendimiento,
+  fetchSesionesLog,
+  type PesoEntry, type MedidaCorporal, type RegistroRendimiento, type SesionLog,
 } from '../../lib/supabase'
 import { demoPeso, demoMedidas, demoRendimiento } from '../../data/demo'
 
@@ -75,6 +76,7 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
   const [medidas, setMedidas] = useState<MedidaCorporal[]>(demo ? demoMedidas : [])
   const [rendimiento, setRendimiento] = useState<RegistroRendimiento[]>(demo ? demoRendimiento : [])
   const [fotos, setFotos] = useState<{ id: string; fecha: string; url: string }[]>([])
+  const [sesiones, setSesiones] = useState<SesionLog[]>([])
   const [loading, setLoading] = useState(!demo)
 
   const [showPesoForm, setShowPesoForm] = useState(false)
@@ -103,13 +105,15 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
       fetchMedidasCorporales(userId),
       fetchRegistrosRendimiento(userId),
       fetchFotosProgreso(userId),
-    ]).then(([pesosData, cliente, medidasData, rendData, fotosData]) => {
+      fetchSesionesLog(userId),
+    ]).then(([pesosData, cliente, medidasData, rendData, fotosData, sesionesData]) => {
       setPesos(pesosData)
       setPesoInicial(cliente?.pesoInicial ?? 0)
       setPesoObjetivo(cliente?.pesoObjetivo)
       setMedidas(medidasData)
       setRendimiento(rendData)
       setFotos(fotosData)
+      setSesiones(sesionesData)
       setLoading(false)
     })
   }, [userId, demo])
@@ -138,6 +142,14 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
     : ultimaMedida?.cintura != null && primeraMedida?.cintura != null && medidas.length > 1
       ? ultimaMedida.cintura - primeraMedida.cintura
       : null
+
+  const semanaPasada28 = (() => { const d = new Date(); d.setDate(d.getDate() - 28); return d.toISOString().split('T')[0] })()
+  const sesionesCompletadas = sesiones.filter(s => s.completada).length
+  const sesionesTotal = sesiones.length
+  const sesionesEstaSemana = sesiones.filter(s => s.fecha >= semanaPasadaStr && s.completada).length
+  const adherencia4semanas = sesiones.filter(s => s.fecha >= semanaPasada28).length > 0
+    ? Math.round((sesiones.filter(s => s.fecha >= semanaPasada28 && s.completada).length / sesiones.filter(s => s.fecha >= semanaPasada28).length) * 100)
+    : 0
 
   const ejerciciosMap = new Map<string, RegistroRendimiento[]>()
   rendimiento.forEach(r => {
@@ -256,6 +268,23 @@ export default function MiProgreso({ userId, onToast }: MiProgresoProps) {
       {/* ─── RESUMEN ─── */}
       {tab === 'resumen' && (
         <div className="px-4 space-y-4">
+          {/* Sesiones */}
+          <div className="rounded-2xl p-5" style={cardStyle}>
+            <h3 className="font-semibold text-white mb-4 text-sm">Sesiones de entrenamiento</h3>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              {[
+                { label: 'Esta semana', val: String(sesionesEstaSemana), color: '#F5611A' },
+                { label: 'Total', val: `${sesionesCompletadas}/${sesionesTotal}`, color: '#10B981' },
+                { label: 'Adherencia', val: `${adherencia4semanas}%`, color: '#8B5CF6' },
+              ].map(({ label, val, color }) => (
+                <div key={label} className="rounded-xl p-3 text-center" style={innerCardStyle}>
+                  <div className="font-bold text-base" style={{ color }}>{val}</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Esta semana */}
           <div className="rounded-2xl p-5" style={cardStyle}>
             <h3 className="font-semibold text-white mb-4 text-sm">Esta semana</h3>

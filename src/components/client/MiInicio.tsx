@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, Dumbbell, Apple, Weight, MessageSquare, Calendar } from 'lucide-react'
+import { ChevronRight, Dumbbell, Apple, Weight, MessageSquare, Calendar, CheckCircle2 } from 'lucide-react'
 import {
-  fetchRutina4Semanas, fetchPlanNutricional, fetchRegistrosPeso,
-  type Rutina4Semanas, type PlanNutricional, type PesoEntry, type DiaRutina,
+  fetchRutina4Semanas, fetchPlanNutricional, fetchRegistrosPeso, fetchSesionesLog,
+  type Rutina4Semanas, type PlanNutricional, type PesoEntry, type DiaRutina, type SesionLog,
 } from '../../lib/supabase'
 import { demoPeso, demoNutricion } from '../../data/demo'
 
@@ -51,6 +51,7 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
   const [plan, setPlan] = useState<PlanNutricional | null>(null)
   const [pesos, setPesos] = useState<PesoEntry[]>([])
+  const [todaySesion, setTodaySesion] = useState<SesionLog | null>(null)
 
   const today = new Date()
   const dateStr = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -63,7 +64,19 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
       setPesos(demoPeso)
       return
     }
-    fetchRutina4Semanas(userId).then(r => setRutina(r))
+    fetchRutina4Semanas(userId).then(r => {
+      setRutina(r)
+      if (r) {
+        fetchSesionesLog(userId).then(logs => {
+          const todayStr = new Date().toISOString().split('T')[0]
+          const dia = getTodayDia(r)
+          if (dia) {
+            const s = logs.find(l => l.fecha === todayStr && l.dia_id === dia.id)
+            setTodaySesion(s ?? null)
+          }
+        })
+      }
+    })
     fetchPlanNutricional(userId).then(p => setPlan(p))
     fetchRegistrosPeso(userId).then(p => setPesos(p))
   }, [userId, demo])
@@ -133,6 +146,25 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
             <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
               {rutina?.nombre} · Semana {semanaActual} · {totalEjercicios} ejercicios · {totalSeries} series
             </p>
+            {todaySesion ? (
+              <div className="mt-2 flex items-center gap-2">
+                {todaySesion.completada ? (
+                  <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.25)', color: '#10B981' }}>
+                    <CheckCircle2 size={11} /> Completada
+                  </span>
+                ) : (() => {
+                  const seriesLogs = Object.values(todaySesion.series_completadas ?? {}).flat()
+                  const done = seriesLogs.filter(s => s.completada).length
+                  const total = seriesLogs.length
+                  const pct = total > 0 ? Math.round((done / total) * 100) : 0
+                  return (
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,97,26,0.25)', color: 'white' }}>
+                      En progreso · {pct}%
+                    </span>
+                  )
+                })()}
+              </div>
+            ) : null}
           </>
         ) : rutina ? (
           <p className="text-white opacity-70 text-sm">🛌 Hoy es día de descanso</p>
