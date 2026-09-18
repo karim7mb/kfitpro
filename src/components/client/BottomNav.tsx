@@ -1,6 +1,6 @@
-import { Home, Dumbbell, Apple, TrendingUp, MessageSquare } from 'lucide-react'
+import { Home, Dumbbell, CalendarDays, TrendingUp, MessageSquare } from 'lucide-react'
 
-type ClientTab = 'inicio' | 'rutina' | 'nutricion' | 'progreso' | 'chat'
+type ClientTab = 'inicio' | 'rutina' | 'nutricion' | 'progreso' | 'chat' | 'calendario'
 
 interface BottomNavProps {
   current: ClientTab
@@ -10,7 +10,7 @@ interface BottomNavProps {
 const tabs = [
   { id: 'inicio' as ClientTab, label: 'Inicio', icon: Home },
   { id: 'rutina' as ClientTab, label: 'Rutina', icon: Dumbbell },
-  { id: 'nutricion' as ClientTab, label: 'Nutrición', icon: Apple },
+  { id: 'calendario' as ClientTab, label: 'Plan', icon: CalendarDays },
   { id: 'progreso' as ClientTab, label: 'Progreso', icon: TrendingUp },
   { id: 'chat' as ClientTab, label: 'Chat', icon: MessageSquare },
 ]

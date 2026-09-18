@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, Dumbbell, Apple, Weight, MessageSquare } from 'lucide-react'
-import { fetchRutina, fetchPlanNutricional, fetchRegistrosPeso, type RutinaData, type PlanNutricional, type PesoEntry } from '../../lib/supabase'
-import { demoRutina, demoPeso, demoNutricion } from '../../data/demo'
+import { ChevronRight, Dumbbell, Apple, Weight, MessageSquare, Calendar } from 'lucide-react'
+import {
+  fetchRutina4Semanas, fetchPlanNutricional, fetchRegistrosPeso,
+  type Rutina4Semanas, type PlanNutricional, type PesoEntry, type DiaRutina,
+} from '../../lib/supabase'
+import { demoPeso, demoNutricion } from '../../data/demo'
 
 interface MiInicioProps {
   userName: string
   userId: string
-  onNavigate: (tab: 'rutina' | 'nutricion' | 'progreso' | 'chat') => void
+  onNavigate: (tab: 'rutina' | 'nutricion' | 'progreso' | 'chat' | 'calendario') => void
 }
 
 const isDemo = (id: string) => id.startsWith('client-') || id.startsWith('admin-')
@@ -18,9 +21,34 @@ const DEMO_PLAN: PlanNutricional = {
   comidas: [],
 }
 
+function getDayOfWeekIndex(): number {
+  return (new Date().getDay() + 6) % 7 // 0=Mon, 6=Sun
+}
+
+function calcSemanaActual(fechaInicio?: string): number {
+  if (!fechaInicio) return 1
+  const ms = Date.now() - new Date(fechaInicio).getTime()
+  return Math.min(4, Math.max(1, Math.floor(ms / (1000 * 60 * 60 * 24 * 7)) + 1))
+}
+
+function getTodayDia(rutina: Rutina4Semanas): DiaRutina | null {
+  const semana = calcSemanaActual(rutina.fecha_inicio)
+  const dias = rutina.semanas?.[semana - 1]?.dias ?? rutina.dias
+  if (!dias?.length) return null
+  const dayIdx = getDayOfWeekIndex()
+  const total = dias.length
+  const maxSlot = total <= 5 ? 4 : 6
+  const map: Record<number, number> = {}
+  for (let i = 0; i < total; i++) {
+    map[total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1))] = i
+  }
+  const idx = map[dayIdx]
+  return idx !== undefined ? dias[idx] : null
+}
+
 export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps) {
   const demo = isDemo(userId)
-  const [rutina, setRutina] = useState<RutinaData | null>(null)
+  const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
   const [plan, setPlan] = useState<PlanNutricional | null>(null)
   const [pesos, setPesos] = useState<PesoEntry[]>([])
 
@@ -31,19 +59,19 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
 
   useEffect(() => {
     if (demo) {
-      setRutina(demoRutina)
       setPlan(DEMO_PLAN)
       setPesos(demoPeso)
       return
     }
-    fetchRutina(userId).then(r => setRutina(r))
+    fetchRutina4Semanas(userId).then(r => setRutina(r))
     fetchPlanNutricional(userId).then(p => setPlan(p))
     fetchRegistrosPeso(userId).then(p => setPesos(p))
   }, [userId, demo])
 
-  const todayWorkout = rutina?.dias[0] ?? null
+  const todayWorkout = rutina ? getTodayDia(rutina) : null
   const totalEjercicios = todayWorkout?.ejercicios.length ?? 0
   const totalSeries = todayWorkout?.ejercicios.reduce((s, e) => s + e.series, 0) ?? 0
+  const semanaActual = rutina ? calcSemanaActual(rutina.fecha_inicio) : 1
 
   const totalCal = plan?.comidas.reduce((s, c) => s + c.alimentos.reduce((ss, a) => ss + a.calorias, 0), 0) ?? 0
   const calObj = plan?.calorias_objetivo ?? 0
@@ -52,6 +80,27 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
   const pesoActual = pesos.length > 0 ? pesos[pesos.length - 1].peso : null
   const pesoAnterior = pesos.length > 1 ? pesos[pesos.length - 2].peso : null
   const pesoDiff = pesoActual && pesoAnterior ? (pesoActual - pesoAnterior) : null
+
+  // Build week display from real routine days
+  const weekDots = (() => {
+    const labels = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+    const dayIndex = getDayOfWeekIndex()
+    const trainingSlots = new Set<number>()
+    if (rutina) {
+      const dias = rutina.semanas?.[semanaActual - 1]?.dias ?? rutina.dias ?? []
+      const total = dias.length
+      const maxSlot = total <= 5 ? 4 : 6
+      dias.forEach((_, i) => {
+        trainingSlots.add(total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1)))
+      })
+    }
+    return labels.map((d, i) => ({
+      label: d,
+      isToday: i === dayIndex,
+      isTraining: trainingSlots.has(i),
+      isDone: trainingSlots.has(i) && i < dayIndex,
+    }))
+  })()
 
   return (
     <div className="pb-28">
@@ -82,11 +131,13 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
           <>
             <p className="font-bold text-white text-lg leading-tight">{todayWorkout.titulo || todayWorkout.nombre}</p>
             <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              {rutina?.nombre} · {totalEjercicios} ejercicios · {totalSeries} series
+              {rutina?.nombre} · Semana {semanaActual} · {totalEjercicios} ejercicios · {totalSeries} series
             </p>
           </>
+        ) : rutina ? (
+          <p className="text-white opacity-70 text-sm">🛌 Hoy es día de descanso</p>
         ) : (
-          <p className="text-white opacity-70 text-sm">Sin rutina asignada hoy</p>
+          <p className="text-white opacity-70 text-sm">Sin rutina asignada</p>
         )}
       </button>
 
@@ -123,9 +174,9 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
         )}
       </button>
 
-      {/* Grid: Peso + Chat */}
+      {/* Grid: Peso + Calendario */}
       <div className="mx-4 grid grid-cols-2 gap-3 mb-4">
-        {/* Progreso */}
+        {/* Progreso/Peso */}
         <button
           onClick={() => onNavigate('progreso')}
           className="rounded-2xl p-4 text-left cursor-pointer"
@@ -145,53 +196,66 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
           )}
         </button>
 
-        {/* Chat */}
+        {/* Calendario */}
         <button
-          onClick={() => onNavigate('chat')}
+          onClick={() => onNavigate('calendario')}
           className="rounded-2xl p-4 text-left cursor-pointer"
           style={{ background: '#161820', border: '1px solid #1E2130' }}
         >
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(245,97,26,0.15)' }}>
-            <MessageSquare style={{ width: 16, height: 16, color: '#F5611A' }} />
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(139,92,246,0.15)' }}>
+            <Calendar style={{ width: 16, height: 16, color: '#8B5CF6' }} />
           </div>
-          <div className="font-bold text-white text-sm">Karim</div>
-          <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Tu entrenador</div>
-          <div className="text-xs mt-1 font-medium" style={{ color: '#F5611A' }}>En línea</div>
+          <div className="font-bold text-white text-xl">
+            {rutina ? `S${semanaActual}/4` : '—'}
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Plan 4 semanas</div>
+          {rutina && (
+            <div className="text-xs mt-1 font-medium" style={{ color: '#8B5CF6' }}>
+              Ver calendario
+            </div>
+          )}
         </button>
       </div>
 
-      {/* Semana */}
+      {/* Chat */}
+      <button
+        onClick={() => onNavigate('chat')}
+        className="mx-4 mb-4 w-[calc(100%-2rem)] rounded-2xl p-4 text-left cursor-pointer flex items-center gap-3"
+        style={{ background: '#161820', border: '1px solid #1E2130' }}
+      >
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(245,97,26,0.15)' }}>
+          <MessageSquare style={{ width: 16, height: 16, color: '#F5611A' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-white text-sm">Tu entrenador</div>
+          <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>Escribe a Karim</div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} />
+          <span className="text-xs font-medium" style={{ color: '#10B981' }}>En línea</span>
+        </div>
+      </button>
+
+      {/* Esta semana */}
       <div className="mx-4 rounded-2xl p-5" style={{ background: '#161820', border: '1px solid #1E2130' }}>
         <h3 className="font-semibold text-white mb-4 text-sm">Esta semana</h3>
-        {(() => {
-          const dias = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-          const dayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1
-          const workDays = [0, 2, 4]
-          return (
-            <div className="flex gap-2 justify-between">
-              {dias.map((d, i) => {
-                const isToday = i === dayIndex
-                const isWork = workDays.includes(i)
-                const isDone = isWork && i < dayIndex
-                return (
-                  <div key={d} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-xs" style={{ color: '#4B5563' }}>{d}</span>
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{
-                        background: isToday ? '#F5611A' : isDone ? 'rgba(16,185,129,0.2)' : '#1E2130',
-                        color: isToday ? 'white' : isDone ? '#10B981' : '#4B5563',
-                        border: isToday ? '2px solid #F5611A' : 'none',
-                      }}
-                    >
-                      {isDone ? '✓' : isWork ? '●' : '·'}
-                    </div>
-                  </div>
-                )
-              })}
+        <div className="flex gap-1.5 justify-between">
+          {weekDots.map(({ label, isToday, isTraining, isDone }) => (
+            <div key={label} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-xs" style={{ color: '#4B5563' }}>{label}</span>
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{
+                  background: isToday ? '#F5611A' : isDone ? 'rgba(16,185,129,0.2)' : isTraining ? 'rgba(245,97,26,0.1)' : '#1E2130',
+                  color: isToday ? 'white' : isDone ? '#10B981' : isTraining ? '#F5611A' : '#4B5563',
+                  border: isToday ? '2px solid #F5611A' : 'none',
+                }}
+              >
+                {isDone ? '✓' : isTraining ? '●' : '·'}
+              </div>
             </div>
-          )
-        })()}
+          ))}
+        </div>
       </div>
     </div>
   )
