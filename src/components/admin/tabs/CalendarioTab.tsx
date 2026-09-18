@@ -199,31 +199,30 @@ function DayCell({ day, onClick, isSelected }: { day: CalDay; onClick: () => voi
   const date = new Date(day.date + 'T00:00:00')
 
   let bg = 'transparent'
-  if (isDone) bg = '#10B98115'
+  if (isDone) bg = 'rgba(16,185,129,0.18)'
+  else if (day.isToday && isTraining) bg = '#F5611A'
+  else if (isTraining && !day.isPast) bg = 'rgba(245,97,26,0.55)'
   else if (day.isToday) bg = '#F5611A20'
-  else if (isTraining && !day.isPast) bg = '#F5611A10'
 
   let border = 'transparent'
   if (isSelected) border = '#F5611A'
   else if (day.isToday) border = '#F5611A66'
 
+  const textColor = (!isDone && isTraining && !day.isPast) ? 'white' : day.isPast ? '#6b7280' : '#d1d5db'
+
   return (
     <button
       onClick={onClick}
       className="flex flex-col items-center justify-center py-2 gap-0.5 cursor-pointer transition-all relative"
-      style={{
-        background: bg,
-        border: `1px solid ${border}`,
-        minHeight: 52,
-      }}
+      style={{ background: bg, border: `1px solid ${border}`, minHeight: 52 }}
     >
-      <span className="text-xs" style={{ color: day.isToday ? '#F5611A' : day.isPast ? '#6b7280' : '#d1d5db' }}>
+      <span className="text-xs font-semibold" style={{ color: textColor }}>
         {date.getDate()}
       </span>
       {isDone && <CheckCircle2 size={14} style={{ color: '#10B981' }} />}
-      {!isDone && isTraining && day.isToday && <Clock size={12} style={{ color: '#F5611A' }} />}
-      {!isDone && isTraining && !day.isToday && (
-        <div className="w-2.5 h-2.5 rounded-full" style={{ background: day.isPast ? '#ef4444aa' : '#F5611A' }} />
+      {!isDone && isTraining && day.isToday && <Clock size={12} style={{ color: 'white' }} />}
+      {!isDone && isTraining && day.isPast && (
+        <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#ef4444aa' }} />
       )}
     </button>
   )

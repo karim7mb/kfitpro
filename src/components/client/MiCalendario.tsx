@@ -171,9 +171,10 @@ export default function MiCalendario({ userId }: MiCalendarioProps) {
                   const dayNum = new Date(day.date + 'T00:00:00').getDate()
 
                   let bg = 'transparent'
-                  if (isDone) bg = 'rgba(16,185,129,0.1)'
+                  if (isDone) bg = 'rgba(16,185,129,0.18)'
+                  else if (day.isToday && isTraining) bg = '#F5611A'
+                  else if (isTraining && !day.isPast) bg = 'rgba(245,97,26,0.55)'
                   else if (day.isToday) bg = 'rgba(245,97,26,0.15)'
-                  else if (isTraining && !day.isPast) bg = 'rgba(245,97,26,0.06)'
 
                   const isSelected = selected?.date === day.date
 
@@ -188,13 +189,17 @@ export default function MiCalendario({ userId }: MiCalendarioProps) {
                         border: `1px solid ${isSelected ? '#F5611A' : day.isToday ? 'rgba(245,97,26,0.4)' : 'transparent'}`,
                       }}
                     >
-                      <span className="text-xs" style={{ color: day.isToday ? '#F5611A' : day.isPast ? '#4B5563' : '#D1D5DB' }}>
+                      <span className="text-xs font-semibold" style={{
+                        color: (day.isToday && isTraining) ? 'white'
+                          : (!isDone && isTraining && !day.isPast) ? 'white'
+                          : day.isPast ? '#4B5563' : '#D1D5DB'
+                      }}>
                         {dayNum}
                       </span>
                       {isDone && <CheckCircle2 size={12} style={{ color: '#10B981' }} />}
-                      {!isDone && isTraining && day.isToday && <Clock size={11} style={{ color: '#F5611A' }} />}
-                      {!isDone && isTraining && !day.isToday && (
-                        <div className="w-2 h-2 rounded-full" style={{ background: day.isPast ? '#EF4444AA' : '#F5611A' }} />
+                      {!isDone && isTraining && day.isToday && <Clock size={11} style={{ color: 'white' }} />}
+                      {!isDone && isTraining && day.isPast && (
+                        <div className="w-2 h-2 rounded-full" style={{ background: '#EF4444AA' }} />
                       )}
                     </button>
                   )

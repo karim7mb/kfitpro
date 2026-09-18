@@ -654,6 +654,19 @@ export async function fetchSesionesLog(clienteId: string, rutinaId?: string): Pr
   return data as SesionLog[]
 }
 
+export async function fetchLastSesionForDia(clienteId: string, diaId: string): Promise<SesionLog | null> {
+  const { data, error } = await supabase
+    .from('sesiones_log')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .eq('dia_id', diaId)
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return data as SesionLog
+}
+
 export async function upsertSesionLog(sesion: SesionLog): Promise<void> {
   const payload = {
     cliente_id: sesion.cliente_id,

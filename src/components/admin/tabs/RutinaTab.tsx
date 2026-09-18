@@ -26,14 +26,11 @@ function RpeColor(rpe: number) {
 function deriveWeek(week1Days: DiaRutina[], weekNum: 2 | 3 | 4): DiaRutina[] {
   return week1Days.map(dia => ({
     ...dia,
-    id: dia.id.replace(/w1|d(\d)/, (m: string, n: string) =>
-      weekNum === 4 ? `w4d${n ?? m}` : `w${weekNum}d${n ?? m}`),
-    ejercicios: dia.ejercicios.map((ej, i) => {
-      const baseId = `w${weekNum}e${i + 1}`
+    // Keep same dia.id across all weeks so session history pre-fills correctly
+    ejercicios: dia.ejercicios.map(ej => {
       if (weekNum === 4) {
         return {
           ...ej,
-          id: baseId,
           series: Math.max(2, Math.round(ej.series * 0.6)),
           rpe: Math.min(8, Math.max(6, ej.rpe - 2)),
           rir: Math.min(5, (ej.rir ?? 3) + 3),
@@ -43,7 +40,6 @@ function deriveWeek(week1Days: DiaRutina[], weekNum: 2 | 3 | 4): DiaRutina[] {
       const extraRpe = (weekNum - 1) * 0.5
       return {
         ...ej,
-        id: baseId,
         series: Math.min(6, ej.series + extraSeries),
         rpe: Math.min(9.5, ej.rpe + extraRpe),
         rir: Math.max(0, (ej.rir ?? 3) - (weekNum - 1)),
