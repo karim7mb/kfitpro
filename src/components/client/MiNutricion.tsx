@@ -184,7 +184,6 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
                   onClick={() => setExpanded(p => ({ ...p, [comida.id]: !isOpen }))}
                   className="flex-1 text-left cursor-pointer"
                 >
-                <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white text-sm" style={{ textDecoration: isEaten ? 'line-through' : 'none', opacity: isEaten ? 0.6 : 1 }}>{comida.nombre}</span>
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#1E2130', color: '#6B7280' }}>{comida.hora}</span>
@@ -193,8 +192,6 @@ export default function MiNutricion({ userId }: MiNutricionProps) {
                   <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
                     {comida.alimentos.length} alimentos · {prot}g prot
                   </div>
-                </div>
-                </div>
                 </button>
                 <div className="text-right mr-2 flex-shrink-0">
                   <div className="font-bold text-sm" style={{ color: isEaten ? '#10B981' : '#F5611A' }}>{cal}</div>
