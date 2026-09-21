@@ -111,7 +111,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
           fetchLastSesionForDia(userId, dia.id),
           Promise.resolve(loadLocal(userId, dia.id)),
         ])
-        applySessionState(dia, initPesos, initReps, last, local)
+        applySessionState(initPesos, initReps, last, local)
       }
     }
     const todayProg = progresos.find(p => p.fecha === todayDateStr())
@@ -128,7 +128,6 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
 
   // Priority: today's DB session > localStorage > previous DB session pesos > admin defaults
   const applySessionState = (
-    dia: DiaRutina,
     initPesos: Record<string, string>,
     initReps: Record<string, string>,
     last: import('../../lib/supabase').SesionLog | null,
@@ -261,7 +260,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
       demo ? Promise.resolve(null) : fetchLastSesionForDia(userId, dia.id),
       Promise.resolve(loadLocal(userId, dia.id)),
     ])
-    applySessionState(dia, initPesos, initReps, last, local)
+    applySessionState(initPesos, initReps, last, local)
   }
 
   const saveEjEdit = () => {
