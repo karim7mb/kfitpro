@@ -86,7 +86,21 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
       const dias = r.semanas?.[calcSemanaActual(r.fecha_inicio) - 1]?.dias ?? r.dias ?? []
       const idx = getTodayDiaIdx(dias)
       setSelectedDiaIdx(idx)
-      if (dias[idx]) prefillFromLast(dias[idx].id)
+      const dia = dias[idx]
+      if (dia) {
+        const initPesos: Record<string, string> = {}
+        const initReps: Record<string, string> = {}
+        dia.ejercicios.forEach(ej => {
+          for (let i = 0; i < ej.series; i++) {
+            const k = serieKey(ej.id, i)
+            if (ej.peso > 0) initPesos[k] = String(ej.peso)
+            if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
+          }
+        })
+        setPesos(initPesos)
+        setReps(initReps)
+        prefillFromLast(dia.id)
+      }
     }
     const todayProg = progresos.find(p => p.fecha === todayDateStr())
     if (todayProg) {
@@ -119,8 +133,29 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const allDone = totalSeries > 0 && doneCount >= totalSeries
   const todayAlreadySaved = lastSesionDate === todayDateStr()
 
+  const autoSave = useCallback(async (newDone: Record<string, boolean>, curPesos: Record<string, string>, curReps: Record<string, string>) => {
+    if (demo || !rutina || !todayWorkout) return
+    const seriesMap: Record<string, { serie: number; reps?: number; peso?: number; completada: boolean }[]> = {}
+    for (const ej of todayWorkout.ejercicios) {
+      seriesMap[ej.id] = Array.from({ length: ejOverrides[ej.id]?.series ?? ej.series }, (_, i) => {
+        const k = serieKey(ej.id, i)
+        return { serie: i + 1, reps: curReps[k] ? Number(curReps[k]) : undefined, peso: curPesos[k] ? Number(curPesos[k]) : undefined, completada: newDone[k] ?? false }
+      })
+    }
+    try {
+      await upsertSesionLog({
+        id: sesion?.id, cliente_id: userId, rutina_id: rutina.id, semana_num: semanaActual,
+        dia_id: todayWorkout.id, fecha: todayDateStr(), completada: false,
+        sensacion: sesion?.sensacion, notas: sesion?.notas, series_completadas: seriesMap,
+      })
+      setLastSesionDate(todayDateStr())
+    } catch (e) { console.error('Auto-save failed', e) }
+  }, [demo, rutina, todayWorkout, ejOverrides, sesion, userId, semanaActual])
+
   const toggleSerie = (key: string) => {
-    setSeriesDone(prev => ({ ...prev, [key]: !prev[key] }))
+    const next = { ...seriesDone, [key]: !seriesDone[key] }
+    setSeriesDone(next)
+    autoSave(next, pesos, reps)
   }
 
   const prefillFromLast = useCallback(async (diaId: string) => {
@@ -137,8 +172,8 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
         if (s.reps != null && s.reps > 0) newReps[k] = String(s.reps)
       })
     }
-    setPesos(newPesos)
-    setReps(newReps)
+    setPesos(prev => ({ ...prev, ...newPesos }))
+    setReps(prev => ({ ...prev, ...newReps }))
     setLastSesionDate(last.fecha)
     // If today's session, also restore which series were marked done
     if (last.fecha === todayDateStr()) {
@@ -153,12 +188,27 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const selectDay = (idx: number) => {
     setSelectedDiaIdx(idx)
     setSeriesDone({})
-    setPesos({})
-    setReps({})
     setSessionDone(false)
     setEjOverrides({})
     setLastSesionDate(null)
-    if (dias[idx]) prefillFromLast(dias[idx].id)
+    const dia = dias[idx]
+    if (dia) {
+      const initPesos: Record<string, string> = {}
+      const initReps: Record<string, string> = {}
+      dia.ejercicios.forEach(ej => {
+        for (let i = 0; i < ej.series; i++) {
+          const k = serieKey(ej.id, i)
+          if (ej.peso > 0) initPesos[k] = String(ej.peso)
+          if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
+        }
+      })
+      setPesos(initPesos)
+      setReps(initReps)
+      prefillFromLast(dia.id)
+    } else {
+      setPesos({})
+      setReps({})
+    }
   }
 
   const saveEjEdit = () => {
