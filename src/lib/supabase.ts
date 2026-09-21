@@ -728,6 +728,18 @@ export async function fetchProgresoDiario(clienteId: string, limit = 30): Promis
   return data as ProgresoDiario[]
 }
 
+export async function fetchProgresoHoy(clienteId: string): Promise<ProgresoDiario | null> {
+  const fecha = new Date().toISOString().split('T')[0]
+  const { data, error } = await supabase
+    .from('progreso_diario')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .eq('fecha', fecha)
+    .maybeSingle()
+  if (error || !data) return null
+  return data as ProgresoDiario
+}
+
 export async function upsertProgresoDiario(progreso: ProgresoDiario): Promise<void> {
   const payload = {
     cliente_id: progreso.cliente_id,

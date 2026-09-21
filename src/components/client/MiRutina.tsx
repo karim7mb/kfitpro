@@ -3,7 +3,7 @@ import { Loader2, CheckCircle2, Pencil, X, Check, Droplets, Moon, Zap } from 'lu
 import { demoRutina } from '../../data/demo'
 import {
   fetchRutina4Semanas, upsertSesionLog, fetchLastSesionForDia,
-  upsertProgresoDiario, fetchProgresoDiario,
+  upsertProgresoDiario, fetchProgresoHoy,
   type Rutina4Semanas, type DiaRutina, type ProgresoDiario,
 } from '../../lib/supabase'
 
@@ -87,9 +87,9 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
       return
     }
     setLoading(true)
-    const [r, progresos] = await Promise.all([
+    const [r, todayProg] = await Promise.all([
       fetchRutina4Semanas(userId),
-      fetchProgresoDiario(userId, 1),
+      fetchProgresoHoy(userId),
     ])
     setRutina(r)
     if (r) {
@@ -114,7 +114,6 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
         applySessionState(initPesos, initReps, last, local)
       }
     }
-    const todayProg = progresos.find(p => p.fecha === todayDateStr())
     if (todayProg) {
       setProgreso(todayProg)
       setHidratacion(todayProg.hidratacion ?? 0)
