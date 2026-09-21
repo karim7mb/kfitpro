@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Circle, ChevronDown, ChevronUp, Save, Dumbbell } from 'lucide-react'
+import { CheckCircle2, Circle, ChevronDown, ChevronUp, Save, Dumbbell, Droplets, Moon, Footprints, Activity } from 'lucide-react'
 import {
-  fetchRutina4Semanas, fetchSesionesLog, upsertSesionLog,
-  type Rutina4Semanas, type DiaRutina, type SesionLog, type SerieLog,
+  fetchRutina4Semanas, fetchSesionesLog, upsertSesionLog, fetchProgresoHoy,
+  type Rutina4Semanas, type DiaRutina, type SesionLog, type SerieLog, type ProgresoDiario,
 } from '../../../lib/supabase'
 
 interface HoyTabProps {
@@ -55,14 +55,17 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
   const [saving, setSaving] = useState(false)
   const [todayDia, setTodayDia] = useState<DiaRutina | null>(null)
   const [semanaActual, setSemanaActual] = useState(1)
+  const [recuperacion, setRecuperacion] = useState<ProgresoDiario | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [r, logs] = await Promise.all([
+      const [r, logs, rec] = await Promise.all([
         isDemo ? null : fetchRutina4Semanas(clienteId),
         isDemo ? [] : fetchSesionesLog(clienteId),
+        isDemo ? null : fetchProgresoHoy(clienteId),
       ])
+      setRecuperacion(rec)
 
       setRutina(r)
       const semana = r ? calcSemanaActual(r.fecha_inicio) : 1
@@ -293,6 +296,59 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         <Save size={18} />
         {saving ? 'Guardando…' : 'Guardar sesión'}
       </button>
+
+      {/* Recovery data logged by client */}
+      {recuperacion && (
+        <div className="rounded-2xl p-4 space-y-3" style={{ background: '#1A1D2E', border: '1px solid #2a2d3e' }}>
+          <p className="text-white font-semibold text-sm flex items-center gap-2">
+            <Activity size={14} style={{ color: '#F5611A' }} /> Recuperación del cliente
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {recuperacion.hidratacion != null && (
+              <div className="rounded-xl p-3" style={{ background: '#262940' }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Droplets size={12} style={{ color: '#3B82F6' }} />
+                  <span className="text-xs" style={{ color: '#6B7280' }}>Hidratación</span>
+                </div>
+                <p className="text-white font-bold text-sm">{recuperacion.hidratacion} vasos</p>
+                {recuperacion.litros != null && <p className="text-xs" style={{ color: '#4B5563' }}>{recuperacion.litros} L</p>}
+              </div>
+            )}
+            {recuperacion.pasos != null && recuperacion.pasos > 0 && (
+              <div className="rounded-xl p-3" style={{ background: '#262940' }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Footprints size={12} style={{ color: '#10B981' }} />
+                  <span className="text-xs" style={{ color: '#6B7280' }}>Pasos</span>
+                </div>
+                <p className="text-white font-bold text-sm">{recuperacion.pasos.toLocaleString('es-ES')}</p>
+                <p className="text-xs" style={{ color: recuperacion.pasos >= 10000 ? '#10B981' : recuperacion.pasos >= 5000 ? '#F59E0B' : '#4B5563' }}>
+                  {recuperacion.pasos >= 10000 ? 'Objetivo ✓' : recuperacion.pasos >= 5000 ? 'Bien' : 'Bajo'}
+                </p>
+              </div>
+            )}
+            {recuperacion.horas_sueno != null && (
+              <div className="rounded-xl p-3" style={{ background: '#262940' }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Moon size={12} style={{ color: '#8B5CF6' }} />
+                  <span className="text-xs" style={{ color: '#6B7280' }}>Sueño</span>
+                </div>
+                <p className="text-white font-bold text-sm">{recuperacion.horas_sueno}h</p>
+              </div>
+            )}
+            {recuperacion.dolor_corporal != null && (
+              <div className="rounded-xl p-3" style={{ background: '#262940' }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Activity size={12} style={{ color: recuperacion.dolor_corporal > 7 ? '#EF4444' : recuperacion.dolor_corporal > 4 ? '#F59E0B' : '#10B981' }} />
+                  <span className="text-xs" style={{ color: '#6B7280' }}>Dolor muscular</span>
+                </div>
+                <p className="font-bold text-sm" style={{ color: recuperacion.dolor_corporal > 7 ? '#EF4444' : recuperacion.dolor_corporal > 4 ? '#F59E0B' : '#10B981' }}>
+                  {recuperacion.dolor_corporal}/10
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
