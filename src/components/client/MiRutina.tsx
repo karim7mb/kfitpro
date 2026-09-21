@@ -570,8 +570,8 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
               onToast('Recuperación guardada ✓', 'success')
             } catch { onToast('Error al guardar', 'error') }
           }}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
-          style={{ background: '#1E2130', color: '#F5611A', border: '1px solid rgba(245,97,26,0.3)' }}>
+          className="w-full py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all"
+          style={{ background: 'rgba(245,97,26,0.15)', color: '#F5611A', border: '1px solid rgba(245,97,26,0.3)' }}>
           Guardar recuperación
         </button>
       </div>
