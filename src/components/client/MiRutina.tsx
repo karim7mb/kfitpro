@@ -556,28 +556,25 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
           <input type="range" min={1} max={10} value={dolor} onChange={e => setDolor(Number(e.target.value))} className="w-full accent-orange-500" />
           <div className="flex justify-between text-xs mt-1" style={{ color: '#4B5563' }}><span>Sin dolor</span><span>Muy intenso</span></div>
         </div>
-        {/* Save recovery on rest days or when no workout */}
-        {!todayWorkout && (
-          <button
-            onClick={async () => {
-              if (demo) return
-              try {
-                await upsertProgresoDiario({
-                  id: progreso?.id, cliente_id: userId, fecha: todayDateStr(),
-                  hidratacion,
-                  litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
-                  pasos: pasos > 0 ? pasos : undefined,
-                  horas_sueno: horasSueno !== '' ? Number(horasSueno) : undefined,
-                  dolor_corporal: dolor,
-                })
-                onToast('Recuperación guardada', 'success')
-              } catch { onToast('Error al guardar', 'error') }
-            }}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
-            style={{ background: '#1E2130', color: '#F5611A', border: '1px solid rgba(245,97,26,0.3)' }}>
-            Guardar recuperación
-          </button>
-        )}
+        <button
+          onClick={async () => {
+            if (demo) return
+            try {
+              await upsertProgresoDiario({
+                id: progreso?.id, cliente_id: userId, fecha: todayDateStr(),
+                hidratacion,
+                litros: litrosInput !== '' ? Number(litrosInput) : hidratacion * 0.25,
+                pasos: pasos > 0 ? pasos : undefined,
+                horas_sueno: horasSueno !== '' ? Number(horasSueno) : undefined,
+                dolor_corporal: dolor,
+              })
+              onToast('Recuperación guardada ✓', 'success')
+            } catch { onToast('Error al guardar', 'error') }
+          }}
+          className="w-full py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+          style={{ background: '#1E2130', color: '#F5611A', border: '1px solid rgba(245,97,26,0.3)' }}>
+          Guardar recuperación
+        </button>
       </div>
 
       {/* Week strip — always visible */}
