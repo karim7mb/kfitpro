@@ -18,6 +18,16 @@ const isDemo = (id: string) => id.startsWith('client-') || id.startsWith('admin-
 
 function serieKey(ejId: string, i: number) { return `${ejId}-${i}` }
 
+function localKey(userId: string, diaId: string) {
+  return `kfitpro_session_${userId}_${diaId}_${todayDateStr()}`
+}
+function saveLocal(userId: string, diaId: string, data: { seriesDone: Record<string, boolean>; pesos: Record<string, string>; reps: Record<string, string> }) {
+  try { localStorage.setItem(localKey(userId, diaId), JSON.stringify(data)) } catch {}
+}
+function loadLocal(userId: string, diaId: string) {
+  try { const s = localStorage.getItem(localKey(userId, diaId)); return s ? JSON.parse(s) : null } catch { return null }
+}
+
 function getDayOfWeekIndex(): number {
   return (new Date().getDay() + 6) % 7
 }
@@ -97,8 +107,10 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
             if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
           }
         })
-        setPesos(initPesos)
-        setReps(initReps)
+        const local = loadLocal(userId, dia.id)
+        setPesos(local ? { ...initPesos, ...local.pesos } : initPesos)
+        setReps(local ? { ...initReps, ...local.reps } : initReps)
+        if (local?.seriesDone) setSeriesDone(local.seriesDone)
         prefillFromLast(dia.id)
       }
     }
@@ -155,6 +167,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const toggleSerie = (key: string) => {
     const next = { ...seriesDone, [key]: !seriesDone[key] }
     setSeriesDone(next)
+    if (todayWorkout) saveLocal(userId, todayWorkout.id, { seriesDone: next, pesos, reps })
     autoSave(next, pesos, reps)
   }
 
@@ -202,8 +215,10 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
           if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
         }
       })
-      setPesos(initPesos)
-      setReps(initReps)
+      const local = loadLocal(userId, dia.id)
+      setPesos(local ? { ...initPesos, ...local.pesos } : initPesos)
+      setReps(local ? { ...initReps, ...local.reps } : initReps)
+      if (local?.seriesDone) setSeriesDone(local.seriesDone)
       prefillFromLast(dia.id)
     } else {
       setPesos({})
