@@ -107,11 +107,11 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
             if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
           }
         })
-        const local = loadLocal(userId, dia.id)
-        setPesos(local ? { ...initPesos, ...local.pesos } : initPesos)
-        setReps(local ? { ...initReps, ...local.reps } : initReps)
-        if (local?.seriesDone) setSeriesDone(local.seriesDone)
-        prefillFromLast(dia.id, !!local)
+        const [last, local] = await Promise.all([
+          fetchLastSesionForDia(userId, dia.id),
+          Promise.resolve(loadLocal(userId, dia.id)),
+        ])
+        applySessionState(dia, initPesos, initReps, last, local)
       }
     }
     const todayProg = progresos.find(p => p.fecha === todayDateStr())
@@ -125,6 +125,71 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
     }
     setLoading(false)
   }, [userId, demo])
+
+  // Priority: today's DB session > localStorage > previous DB session pesos > admin defaults
+  const applySessionState = (
+    dia: DiaRutina,
+    initPesos: Record<string, string>,
+    initReps: Record<string, string>,
+    last: import('../../lib/supabase').SesionLog | null,
+    local: { seriesDone: Record<string, boolean>; pesos: Record<string, string>; reps: Record<string, string> } | null,
+  ) => {
+    const isToday = last?.fecha === todayDateStr()
+    if (isToday && last) {
+      // BD de hoy es autoritativa
+      const dbP: Record<string, string> = {}
+      const dbR: Record<string, string> = {}
+      const dbDone: Record<string, boolean> = {}
+      for (const [ejId, series] of Object.entries(last.series_completadas)) {
+        series.forEach((s, i) => {
+          const k = serieKey(ejId, i)
+          if (s.peso != null && s.peso > 0) dbP[k] = String(s.peso)
+          if (s.reps != null && s.reps > 0) dbR[k] = String(s.reps)
+          dbDone[k] = s.completada
+        })
+      }
+      setPesos({ ...initPesos, ...dbP })
+      setReps({ ...initReps, ...dbR })
+      setSeriesDone(dbDone)
+      setLastSesionDate(last.fecha)
+    } else if (local) {
+      // localStorage tiene datos de hoy
+      const basePesos = { ...initPesos, ...(last ? (() => {
+        const lp: Record<string, string> = {}
+        for (const [ejId, series] of Object.entries(last.series_completadas))
+          series.forEach((s, i) => { if (s.peso != null && s.peso > 0) lp[serieKey(ejId, i)] = String(s.peso) })
+        return lp
+      })() : {}) }
+      const baseReps = { ...initReps, ...(last ? (() => {
+        const lr: Record<string, string> = {}
+        for (const [ejId, series] of Object.entries(last.series_completadas))
+          series.forEach((s, i) => { if (s.reps != null && s.reps > 0) lr[serieKey(ejId, i)] = String(s.reps) })
+        return lr
+      })() : {}) }
+      // localStorage wins over previous-session pre-fill
+      setPesos({ ...basePesos, ...local.pesos })
+      setReps({ ...baseReps, ...local.reps })
+      if (local.seriesDone) setSeriesDone(local.seriesDone)
+      if (last) setLastSesionDate(last.fecha)
+    } else {
+      // Sin datos locales: defaults admin + pesos de última sesión como referencia
+      const lastP: Record<string, string> = {}
+      const lastR: Record<string, string> = {}
+      if (last) {
+        for (const [ejId, series] of Object.entries(last.series_completadas)) {
+          series.forEach((s, i) => {
+            const k = serieKey(ejId, i)
+            if (s.peso != null && s.peso > 0) lastP[k] = String(s.peso)
+            if (s.reps != null && s.reps > 0) lastR[k] = String(s.reps)
+          })
+        }
+        setLastSesionDate(last.fecha)
+      }
+      setPesos({ ...initPesos, ...lastP })
+      setReps({ ...initReps, ...lastR })
+      setSeriesDone({})
+    }
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -175,59 +240,28 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
     autoSave(next, pesos, reps)
   }
 
-  const prefillFromLast = useCallback(async (diaId: string, hasLocal = false) => {
-    if (demo) return
-    setLastSesionDate(null)
-    const last = await fetchLastSesionForDia(userId, diaId)
-    if (!last) return
-    const newPesos: Record<string, string> = {}
-    const newReps: Record<string, string> = {}
-    for (const [ejId, series] of Object.entries(last.series_completadas)) {
-      series.forEach((s, idx) => {
-        const k = serieKey(ejId, idx)
-        if (s.peso != null && s.peso > 0) newPesos[k] = String(s.peso)
-        if (s.reps != null && s.reps > 0) newReps[k] = String(s.reps)
-      })
-    }
-    setPesos(prev => ({ ...prev, ...newPesos }))
-    setReps(prev => ({ ...prev, ...newReps }))
-    setLastSesionDate(last.fecha)
-    // Restore seriesDone from DB only if localStorage doesn't already have today's data
-    if (last.fecha === todayDateStr() && !hasLocal) {
-      const newDone: Record<string, boolean> = {}
-      for (const [ejId, series] of Object.entries(last.series_completadas)) {
-        series.forEach((s, idx) => { newDone[serieKey(ejId, idx)] = s.completada })
-      }
-      setSeriesDone(newDone)
-    }
-  }, [userId, demo])
-
-  const selectDay = (idx: number) => {
+  const selectDay = async (idx: number) => {
     setSelectedDiaIdx(idx)
     setSeriesDone({})
     setSessionDone(false)
     setEjOverrides({})
     setLastSesionDate(null)
     const dia = dias[idx]
-    if (dia) {
-      const initPesos: Record<string, string> = {}
-      const initReps: Record<string, string> = {}
-      dia.ejercicios.forEach(ej => {
-        for (let i = 0; i < ej.series; i++) {
-          const k = serieKey(ej.id, i)
-          if (ej.peso > 0) initPesos[k] = String(ej.peso)
-          if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
-        }
-      })
-      const local = loadLocal(userId, dia.id)
-      setPesos(local ? { ...initPesos, ...local.pesos } : initPesos)
-      setReps(local ? { ...initReps, ...local.reps } : initReps)
-      if (local?.seriesDone) setSeriesDone(local.seriesDone)
-      prefillFromLast(dia.id, !!local)
-    } else {
-      setPesos({})
-      setReps({})
-    }
+    if (!dia) { setPesos({}); setReps({}); return }
+    const initPesos: Record<string, string> = {}
+    const initReps: Record<string, string> = {}
+    dia.ejercicios.forEach(ej => {
+      for (let i = 0; i < ej.series; i++) {
+        const k = serieKey(ej.id, i)
+        if (ej.peso > 0) initPesos[k] = String(ej.peso)
+        if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
+      }
+    })
+    const [last, local] = await Promise.all([
+      demo ? Promise.resolve(null) : fetchLastSesionForDia(userId, dia.id),
+      Promise.resolve(loadLocal(userId, dia.id)),
+    ])
+    applySessionState(dia, initPesos, initReps, last, local)
   }
 
   const saveEjEdit = () => {
