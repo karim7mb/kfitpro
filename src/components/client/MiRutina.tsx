@@ -422,7 +422,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
                               className="px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all"
                               style={{ background: done ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: done ? '#10B981' : '#F5611A', border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : 'rgba(245,97,26,0.3)'}` }}
                             >
-                              {done ? '✓ Lista' : 'Marcar lista'}
+                              {done ? '✓ Guardado' : 'Guardar'}
                             </button>
                           </div>
                           <div className="flex gap-3">
