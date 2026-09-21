@@ -156,16 +156,17 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
     }
     try {
       await upsertSesionLog({
-        id: sesion?.id, cliente_id: userId, rutina_id: rutina.id, semana_num: semanaActual,
+        cliente_id: userId, rutina_id: rutina.id, semana_num: semanaActual,
         dia_id: todayWorkout.id, fecha: todayDateStr(), completada: false,
-        sensacion: sesion?.sensacion, notas: sesion?.notas, series_completadas: seriesMap,
+        series_completadas: seriesMap,
       })
       setLastSesionDate(todayDateStr())
+      onToast('Serie guardada ✓', 'success')
     } catch (e) {
       console.error('Auto-save failed', e)
       onToast('Error al guardar serie', 'error')
     }
-  }, [demo, rutina, todayWorkout, ejOverrides, sesion, userId, semanaActual, onToast])
+  }, [demo, rutina, todayWorkout, ejOverrides, userId, semanaActual, onToast])
 
   const toggleSerie = (key: string) => {
     const next = { ...seriesDone, [key]: !seriesDone[key] }
