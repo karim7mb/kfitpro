@@ -111,7 +111,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
         setPesos(local ? { ...initPesos, ...local.pesos } : initPesos)
         setReps(local ? { ...initReps, ...local.reps } : initReps)
         if (local?.seriesDone) setSeriesDone(local.seriesDone)
-        prefillFromLast(dia.id)
+        prefillFromLast(dia.id, !!local)
       }
     }
     const todayProg = progresos.find(p => p.fecha === todayDateStr())
@@ -161,8 +161,11 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
         sensacion: sesion?.sensacion, notas: sesion?.notas, series_completadas: seriesMap,
       })
       setLastSesionDate(todayDateStr())
-    } catch (e) { console.error('Auto-save failed', e) }
-  }, [demo, rutina, todayWorkout, ejOverrides, sesion, userId, semanaActual])
+    } catch (e) {
+      console.error('Auto-save failed', e)
+      onToast('Error al guardar serie', 'error')
+    }
+  }, [demo, rutina, todayWorkout, ejOverrides, sesion, userId, semanaActual, onToast])
 
   const toggleSerie = (key: string) => {
     const next = { ...seriesDone, [key]: !seriesDone[key] }
@@ -171,7 +174,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
     autoSave(next, pesos, reps)
   }
 
-  const prefillFromLast = useCallback(async (diaId: string) => {
+  const prefillFromLast = useCallback(async (diaId: string, hasLocal = false) => {
     if (demo) return
     setLastSesionDate(null)
     const last = await fetchLastSesionForDia(userId, diaId)
@@ -188,8 +191,8 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
     setPesos(prev => ({ ...prev, ...newPesos }))
     setReps(prev => ({ ...prev, ...newReps }))
     setLastSesionDate(last.fecha)
-    // If today's session, also restore which series were marked done
-    if (last.fecha === todayDateStr()) {
+    // Restore seriesDone from DB only if localStorage doesn't already have today's data
+    if (last.fecha === todayDateStr() && !hasLocal) {
       const newDone: Record<string, boolean> = {}
       for (const [ejId, series] of Object.entries(last.series_completadas)) {
         series.forEach((s, idx) => { newDone[serieKey(ejId, idx)] = s.completada })
@@ -219,7 +222,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
       setPesos(local ? { ...initPesos, ...local.pesos } : initPesos)
       setReps(local ? { ...initReps, ...local.reps } : initReps)
       if (local?.seriesDone) setSeriesDone(local.seriesDone)
-      prefillFromLast(dia.id)
+      prefillFromLast(dia.id, !!local)
     } else {
       setPesos({})
       setReps({})
