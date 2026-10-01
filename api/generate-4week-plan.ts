@@ -53,7 +53,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
   try {
-    const { nivel, diasEntreno, tiempoEntrenoSemana, objetivo, lesiones, nombre, genero, equipamiento } = await req.json()
+    const { nivel, diasEntreno, tiempoEntrenoSemana, objetivo, lesiones, nombre, genero, equipamiento, tipoSplit } = await req.json()
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) return Response.json({ error: 'Sin ANTHROPIC_API_KEY' }, { status: 500 })
@@ -94,6 +94,112 @@ export default async function handler(req: Request): Promise<Response> {
     const equipamientoLine = `\n- Equipamiento: ${equipLabels[equipamiento] ?? equipLabels['gimnasio_completo']}`
 
     const diasNum = Number(diasEntreno) || 3
+
+    const splitId: string = tipoSplit ?? 'auto'
+
+    const splitBlock = splitId === 'full_body' ? `
+SPLIT ELEGIDO: FULL BODY — TODOS LOS DÍAS ENTRENAN EL CUERPO COMPLETO
+Genera ${diasNum} días Full Body rotando énfasis y orden muscular:
+- Full Body A: Hack squat/Sentadilla (quads primario) → Press pecho máquina → Jalón neutro → Deltoides lat cable → Curl bayesiano → Overhead tríceps
+- Full Body B: RDL + Hip thrust (posterior primario) → Press inclinado mancuernas → Remo soporte pectoral → Deltoides lat variación → Curl predicador → Press francés
+- Full Body C (si ≥3 días): Prensa 45° → Press hombros máquina → Pull-up → Aperturas cable → Curl inclinado → Dips
+Reglas: 1 compuesto por grupo principal por sesión; Deltoides lateral SIEMPRE presente en todos los días.
+` : splitId === 'push_pull' ? `
+SPLIT ELEGIDO: PUSH / PULL × 2 — 4 DÍAS (piernas integradas en push y pull, sin día de pierna separado)
+Estructura obligatoria EXACTA — genera exactamente 4 días:
+• Día 1 Push A [6-7 ejercicios]: Pecho primario + Quads + Deltoides lateral + Tríceps
+  OBLIGATORIO: press máquina de pecho O press inclinado barra | hack squat O extensión cuáds | elevaciones laterales cable ×2 | overhead tríceps polea
+• Día 2 Pull A [5-6 ejercicios]: Espalda primaria + Isquios/Glúteos + Bíceps
+  OBLIGATORIO: remo Meadows O jalón neutro un brazo | RDL O curl femoral SENTADO | hip thrust | curl bayesiano en cable
+• Día 3 Push B [6-7 ejercicios]: Pecho (ángulo distinto al Día 1) + Quads variación + Hombros + Tríceps variación
+  OBLIGATORIO: press inclinado mancuernas O otro ángulo distinto | prensa 45° O sentadilla búlgara | press hombros máquina + elevaciones lat cable | press francés O dips tríceps
+• Día 4 Pull B [5-6 ejercicios]: Espalda (variación) + Glúteos/Isquios variación + Bíceps variación
+  OBLIGATORIO: remo soporte pectoral O remo en cable | hip thrust variación O curl femoral tumbado | curl inclinado O curl predicador mancuerna
+RESULTADO Push/Pull ×2: Pecho 2x ✓ Espalda 2x ✓ Deltoides lat 2x ✓ Quads 2x ✓ Isquios 2x ✓ Glúteos 2x ✓ Bíceps 2x ✓ Tríceps 2x ✓
+` : splitId === 'upper_lower' ? `
+SPLIT ELEGIDO: UPPER / LOWER${genero === 'mujer' ? ` — MUJER DOBLE FRECUENCIA:
+• Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
+• Día 2 Lower A: Cuádriceps dominant (hack squat + extensión cuáds) + glúteos (hip thrust) + isquios (curl femoral SENTADO)
+• Día 3 Upper B: PRIMARY tracción (2 espalda + 2 deltoides lateral + 1-2 bíceps) + SECUNDARIO empuje (1 press pecho + 1 tríceps)
+• Día 4 Lower B: Isquios dominant (RDL + curl femoral tumbado) + glúteos (abducción) + cuádriceps secundario (prensa) + gemelos
+RESULTADO: Pecho 2x ✓ Espalda 2x ✓ Deltoides lateral 2x ✓ Cuáds 2x ✓ Glúteos 2x ✓ Isquios 2x ✓` : ` — HOMBRE 3 UPPER + 1 LOWER:
+• Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
+• Día 2 Lower ÚNICO: hack squat/pendulum + extensión cuáds + RDL + curl femoral SENTADO + hip thrust + gemelos (6-7 ejercicios)
+• Día 3 Upper B: PRIMARY tracción (2 espalda + 2 deltoides lateral + 1-2 bíceps) + SECUNDARIO empuje (1 press pecho + 1 tríceps)
+• Día 4 Upper C: press hombros máquina + 2 deltoides lateral + curl bayesiano + extensión overhead + curl predicador
+RESULTADO: Pecho 2x ✓ Espalda 2x ✓ Deltoides lateral 3x ✓ Bíceps 3x ✓ Tríceps 3x ✓ Pierna 1x`}
+` : splitId === 'ppl' ? `
+SPLIT ELEGIDO: PUSH / PULL / LEGS (PPL)
+Contenido por día:
+• Push: Pecho (2 ej: press máquina + aperturas cable) + Deltoides lateral (2 ej: elevaciones cable ×2) + Tríceps (2 ej: overhead + press francés) = 5-7 ejercicios
+• Pull: Espalda (2-3 ej: remo Meadows + jalón neutro) + Bíceps (2 ej: curl bayesiano + curl predicador) + Deltoides posterior (1 ej) = 5-6 ejercicios
+• Legs: Cuads (hack squat + extensión cuáds) + Isquios (RDL + curl femoral SENTADO) + Glúteos (hip thrust) + Gemelos = 6-7 ejercicios
+Adaptación por días: 3d → PPL | 5d → Push/Pull/Legs/Upper/Lower | 6d → PPL + Push B/Pull B/Legs B con variaciones
+` : splitId === 'weider' ? `
+SPLIT ELEGIDO: WEIDER (BRO SPLIT) — UN MÚSCULO PRIMARIO POR DÍA, ALTO VOLUMEN (1x/semana por grupo)
+Estructura según ${diasNum} días:
+- 5 días: Pecho | Espalda | Piernas | Hombros | Brazos
+- 4 días: Pecho+Tríceps | Espalda+Bíceps | Piernas | Hombros+Brazos
+- 3 días: Pecho+Tríceps | Espalda+Bíceps | Piernas+Hombros+Brazos
+- 6 días: Pecho | Espalda | Piernas | Hombros | Bíceps | Tríceps
+Reglas WEIDER (alto volumen por sesión):
+• PECHO (5-7 ej): distintos ángulos — press máquina + press inclinado + aperturas cable + pec deck + cable fly
+• ESPALDA (5-7 ej): jalón neutro + remo Meadows + remo soporte pectoral + remo cable + pullover máquina
+• PIERNAS (6-7 ej): hack squat + extensión cuáds + RDL + curl femoral SENTADO + hip thrust + abducción + gemelos
+• HOMBROS (4-6 ej): press máquina + elevaciones laterales cable ×2-3 + deltoides posterior pec deck inverso
+• BRAZOS (5-7 ej): curl bayesiano + curl predicador + curl inclinado | overhead tríceps + press francés + dips
+Volumen: 12-20 series por grupo muscular en su día dedicado.
+` : splitId === 'arnold' ? `
+SPLIT ELEGIDO: ARNOLD SPLIT — Pecho+Espalda / Hombros+Brazos / Piernas (×2 si 6 días)
+Estructura según ${diasNum} días:
+- 6 días: (Pecho+Espalda A) + (Hombros+Brazos A) + (Piernas A) + (Pecho+Espalda B) + (Hombros+Brazos B) + (Piernas B)
+- 3 días: (Pecho+Espalda) + (Hombros+Brazos) + (Piernas) — 1 ciclo
+- Otros: adapta comprimiendo o expandiendo el ciclo
+Contenido:
+• Pecho+Espalda A [6-8 ej]: press máquina + aperturas cable | remo Meadows + jalón neutro agarre neutro
+• Hombros+Brazos A [6-8 ej]: press hombros máquina + elevaciones lat cable ×2 | curl bayesiano + curl predicador | overhead tríceps + press francés
+• Piernas A [6-7 ej]: hack squat + extensión cuáds + RDL + curl femoral SENTADO + hip thrust + gemelos
+• Pecho+Espalda B [6-8 ej, variaciones]: press inclinado mancuernas + cable fly | remo soporte pectoral + pull-up neutro
+• Hombros+Brazos B [6-8 ej, variaciones]: elevaciones Y inclinadas + elevaciones lat cable ×2 | curl inclinado + curl martillo | extensión overhead mancuerna + dips
+• Piernas B [6-7 ej, variaciones]: sentadilla búlgara + prensa 45° + curl femoral tumbado + abducción + hip thrust variación + gemelos sentado
+RESULTADO: Pecho 2x ✓ Espalda 2x ✓ Hombros 2x ✓ Bíceps 2x ✓ Tríceps 2x ✓ Piernas 2x ✓
+` : /* auto */ `
+SPLITS OBLIGATORIOS SEGÚN DÍAS (NO improvises el split — usa el que se indica):
+- 2 días → Full Body A + Full Body B (todos los músculos ambos días)
+- 3 días → Full Body A + Full Body B + Full Body C (rotando énfasis)
+- 4 días MUJER → UPPER/LOWER DOBLE FRECUENCIA:
+    • Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
+    • Día 2 Lower A: Cuádriceps dominant (hack squat + extensión cuáds) + glúteos (hip thrust) + isquios (curl femoral SENTADO)
+    • Día 3 Upper B: PRIMARY tracción (2 espalda + 2 deltoides lateral + 1-2 bíceps) + SECUNDARIO empuje (1 press pecho + 1 tríceps)
+    • Día 4 Lower B: Isquios dominant (RDL + curl femoral tumbado) + glúteos (abducción) + cuádriceps secundario (prensa) + gemelos
+    RESULTADO mujer: Pecho 2x ✓ Espalda 2x ✓ Deltoides lateral 2x ✓ Cuáds 2x ✓ Glúteos 2x ✓ Isquios 2x ✓
+
+- 4 días HOMBRE → 3 UPPER + 1 LOWER (solo 1 día de pierna):
+    • Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
+    • Día 2 Lower ÚNICO: Pierna completa — hack squat/pendulum + extensión cuáds + RDL + curl femoral SENTADO + hip thrust + gemelos (6-7 ejercicios)
+    • Día 3 Upper B: PRIMARY tracción (2 espalda + 2 deltoides lateral + 1-2 bíceps) + SECUNDARIO empuje (1 press pecho + 1 tríceps)
+    • Día 4 Upper C: Hombros + brazos (press hombros máquina + 2 deltoides lateral + curl bayesiano + extensión overhead + curl predicador)
+    RESULTADO hombre: Pecho 2x ✓ Espalda 2x ✓ Deltoides lateral 3x ✓ Bíceps 3x ✓ Tríceps 3x ✓ Pierna 1x (Lower único completo)
+
+- 5 días → Push / Pull / Legs / Upper / Lower
+- 6 días → Push / Pull / Legs / Push / Pull / Legs
+
+REGLA DE FRECUENCIA SEGÚN GÉNERO:
+  - MUJER 4 días: todos los músculos 2x/semana (incluida pierna)
+  - HOMBRE 4 días: tren superior 2-3x/semana, pierna SOLO 1x/semana (Lower único completo)
+  - Resto de splits: cada grupo 2x/semana
+
+OBLIGATORIO en 4 días HOMBRE:
+  - Deltoides lateral (elevaciones en cable): en Upper A, Upper B Y Upper C
+  - Hack squat / pendulum / Smith: primer compuesto del Lower único
+  - Curl femoral SENTADO: SIEMPRE en el Lower único
+  - Extensión cuáds: en el Lower único
+  - RDL + hip thrust: en el Lower único
+  - Pecho: 2 ejercicios en Upper A + 1 ejercicio en Upper B
+  - Espalda: 1 ejercicio en Upper A + 2 ejercicios en Upper B
+  - Bíceps: 1 en Upper A + 1 en Upper B + 1-2 en Upper C
+  - Tríceps: 1 en Upper A + 1 en Upper B + 1 en Upper C
+`
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -136,42 +242,7 @@ Marca el segundo ejercicio del par con "superset": true. NUNCA superset entre do
 
 CALENTAMIENTO (implícito, no incluir en JSON): 50%×10 → 70%×5 → 85%×2 antes de cada compuesto principal.
 
-SPLITS OBLIGATORIOS SEGÚN DÍAS (NO improvises el split — usa el que se indica):
-- 2 días → Full Body A + Full Body B (todos los músculos ambos días)
-- 3 días → Full Body A + Full Body B + Full Body C (rotando énfasis)
-- 4 días MUJER → UPPER/LOWER DOBLE FRECUENCIA:
-    • Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
-    • Día 2 Lower A: Cuádriceps dominant (hack squat + extensión cuáds) + glúteos (hip thrust) + isquios (curl femoral SENTADO)
-    • Día 3 Upper B: PRIMARY tracción (2 espalda + 2 deltoides lateral + 1-2 bíceps) + SECUNDARIO empuje (1 press pecho + 1 tríceps)
-    • Día 4 Lower B: Isquios dominant (RDL + curl femoral tumbado) + glúteos (abducción) + cuádriceps secundario (prensa) + gemelos
-    RESULTADO mujer: Pecho 2x ✓ Espalda 2x ✓ Deltoides lateral 2x ✓ Cuáds 2x ✓ Glúteos 2x ✓ Isquios 2x ✓
-
-- 4 días HOMBRE → 3 UPPER + 1 LOWER (solo 1 día de pierna):
-    • Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
-    • Día 2 Lower ÚNICO: Pierna completa — hack squat/pendulum + extensión cuáds + RDL + curl femoral SENTADO + hip thrust + gemelos (6-7 ejercicios)
-    • Día 3 Upper B: PRIMARY tracción (2 espalda + 2 deltoides lateral + 1-2 bíceps) + SECUNDARIO empuje (1 press pecho + 1 tríceps)
-    • Día 4 Upper C: Hombros + brazos (press hombros máquina + 2 deltoides lateral + curl bayesiano + extensión overhead + curl predicador)
-    RESULTADO hombre: Pecho 2x ✓ Espalda 2x ✓ Deltoides lateral 3x ✓ Bíceps 3x ✓ Tríceps 3x ✓ Pierna 1x (Lower único completo)
-
-- 5 días → Push / Pull / Legs / Upper / Lower
-- 6 días → Push / Pull / Legs / Push / Pull / Legs
-
-REGLA DE FRECUENCIA SEGÚN GÉNERO:
-  - MUJER 4 días: todos los músculos 2x/semana (incluida pierna)
-  - HOMBRE 4 días: tren superior 2-3x/semana, pierna SOLO 1x/semana (Lower único completo)
-  - Resto de splits: cada grupo 2x/semana
-
-OBLIGATORIO en 4 días HOMBRE:
-  - Deltoides lateral (elevaciones en cable): en Upper A, Upper B Y Upper C
-  - Hack squat / pendulum / Smith: primer compuesto del Lower único
-  - Curl femoral SENTADO: SIEMPRE en el Lower único
-  - Extensión cuáds: en el Lower único
-  - RDL + hip thrust: en el Lower único
-  - Pecho: 2 ejercicios en Upper A + 1 ejercicio en Upper B
-  - Espalda: 1 ejercicio en Upper A + 2 ejercicios en Upper B
-  - Bíceps: 1 en Upper A + 1 en Upper B + 1-2 en Upper C
-  - Tríceps: 1 en Upper A + 1 en Upper B + 1 en Upper C
-
+${splitBlock}
 ESTRUCTURA POR SESIÓN: 1-2 compuestos + 2-3 accesorios + 1-2 aislamientos = 5-7 ejercicios.
 
 ════════════════════════════════════════════
@@ -258,14 +329,14 @@ IMPORTANTE: Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin mark
           content: `Crea la SEMANA 1 (base MEV) de una rutina de 4 semanas usando metodología Nippard para:
 - Nivel: ${nivelLabels[nivel] ?? nivel}
 - Objetivo: ${objLabels[objetivo] ?? objetivo}
-- Días de entrenamiento: ${diasNum} días/semana → elige el split más adecuado
+- Días de entrenamiento: ${diasNum} días/semana
+- Split elegido: ${splitId === 'auto' ? 'automático (según días y género)' : splitId.replace('_', ' ').toUpperCase()}
 - Tiempo por sesión: ${tiempoLabels[tiempoEntrenoSemana] ?? tiempoEntrenoSemana}${generoLine}${equipamientoLine}${lesionesLine}
 
 Esta semana 1 es la base MEV. Semanas 2-3 suben volumen e intensidad, semana 4 = deload (volumen -40%, RPE 6-8).
 VERIFICACIÓN OBLIGATORIA antes de generar:
-- Si es MUJER 4 días: pecho, espalda, deltoides lateral, bíceps, tríceps, cuáds, glúteos e isquios aparecen en 2 días distintos. Upper A push+pull / Upper B pull+push. Deltoides lateral en ambos Upper.
-- Si es HOMBRE 4 días: Upper A (push+pull secundario) + Lower ÚNICO (pierna completa: hack squat + extensión cuáds + RDL + curl femoral sentado + hip thrust + gemelos) + Upper B (pull+push secundario) + Upper C (hombros+brazos). Pierna SOLO en 1 día. Deltoides lateral en los 3 días Upper.
-- Prioriza ejercicios S+ y S del tier list. Hack squat/pendulum/Smith primer compuesto en el día de pierna.
+- Sigue EXACTAMENTE la estructura del split indicado en el system prompt para "${splitId}".
+- Prioriza ejercicios S+ y S del tier list. Hack squat/pendulum/Smith primer compuesto en días de pierna.
 
 Devuelve SOLO este JSON (ids: w1d1, w1d2...; ejercicios: w1e1, w1e2...). Cada ejercicio DEBE incluir: rir, descanso (segundos), y superset: true si es antagonista del anterior:
 {"nombre":"${nombre ?? 'Plan 4 Semanas'}","descripcion":"Semana 1 — Base MEV","dias":[{"id":"w1d1","nombre":"Día 1","titulo":"Empuje — Pecho, Hombros y Tríceps","ejercicios":[{"id":"w1e1","nombre":"Press inclinado agarre cerrado con barra","series":3,"repsMin":5,"repsMax":8,"peso":0,"rpe":7,"rir":3,"descanso":210},{"id":"w1e2","nombre":"Press en máquina de pecho","series":3,"repsMin":10,"repsMax":14,"peso":0,"rpe":8,"rir":2,"descanso":120},{"id":"w1e3","nombre":"Aperturas en cable sentado","series":3,"repsMin":12,"repsMax":16,"peso":0,"rpe":8,"rir":2,"descanso":90},{"id":"w1e4","nombre":"Elevaciones laterales en cable","series":3,"repsMin":15,"repsMax":20,"peso":0,"rpe":9,"rir":1,"descanso":75},{"id":"w1e5","nombre":"Extensión tríceps overhead en polea con barra","series":3,"repsMin":12,"repsMax":16,"peso":0,"rpe":8,"rir":2,"descanso":75}]}]}`,

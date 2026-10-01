@@ -204,27 +204,39 @@ function TecnicaModal({ exerciseName, video, slug, onClose }: TecnicaModalProps)
 
 type Genero = 'hombre' | 'mujer'
 type Equipamiento = 'gimnasio_completo' | 'gimnasio_basico' | 'casa' | 'sin_equipamiento'
+type TipoSplit = 'auto' | 'full_body' | 'upper_lower' | 'push_pull' | 'ppl' | 'weider' | 'arnold'
 
 interface GenModalProps {
   genero: Genero
   setGenero: (g: Genero) => void
   equipamiento: Equipamiento
   setEquipamiento: (e: Equipamiento) => void
+  tipoSplit: TipoSplit
+  setTipoSplit: (t: TipoSplit) => void
   loading: boolean
   onConfirm: () => void
   onClose: () => void
 }
 
-function GenModal({ genero, setGenero, equipamiento, setEquipamiento, loading, onConfirm, onClose }: GenModalProps) {
+function GenModal({ genero, setGenero, equipamiento, setEquipamiento, tipoSplit, setTipoSplit, loading, onConfirm, onClose }: GenModalProps) {
   const equipOpts: { value: Equipamiento; label: string; desc: string }[] = [
     { value: 'gimnasio_completo', label: 'Gimnasio completo', desc: 'Barras, máquinas, poleas, cables' },
     { value: 'gimnasio_basico', label: 'Gimnasio básico', desc: 'Barras, mancuernas y máquinas básicas' },
     { value: 'casa', label: 'Casa con mancuernas', desc: 'Mancuernas y peso corporal' },
     { value: 'sin_equipamiento', label: 'Sin equipamiento', desc: 'Solo peso corporal' },
   ]
+  const splitOpts: { value: TipoSplit; label: string; desc: string }[] = [
+    { value: 'auto', label: 'Automático', desc: 'Según días y género' },
+    { value: 'full_body', label: 'Full Body', desc: 'Cuerpo completo cada sesión' },
+    { value: 'upper_lower', label: 'Upper / Lower', desc: 'Tren superior / inferior' },
+    { value: 'push_pull', label: 'Push / Pull ×2', desc: '4 días, piernas integradas' },
+    { value: 'ppl', label: 'Push / Pull / Legs', desc: 'PPL clásico' },
+    { value: 'weider', label: 'Weider', desc: 'Un músculo primario/día' },
+    { value: 'arnold', label: 'Arnold Split', desc: '3 grupos × 2 días' },
+  ]
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={onClose}>
-      <div className="rounded-2xl w-full max-w-sm" style={{ background: '#161820', border: '1px solid #2a2d3e' }} onClick={e => e.stopPropagation()}>
+      <div className="rounded-2xl w-full max-w-sm overflow-y-auto" style={{ background: '#161820', border: '1px solid #2a2d3e', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #1E2130' }}>
           <div>
             <p className="text-xs font-medium mb-0.5" style={{ color: '#F5611A' }}>Generar con IA</p>
@@ -247,6 +259,18 @@ function GenModal({ genero, setGenero, equipamiento, setEquipamiento, loading, o
             </div>
           </div>
           <div>
+            <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: '#6B7280' }}>Tipo de split</p>
+            <div className="grid grid-cols-2 gap-2">
+              {splitOpts.map(opt => (
+                <button key={opt.value} onClick={() => setTipoSplit(opt.value)} className="px-3 py-2 rounded-xl text-left cursor-pointer transition-all"
+                  style={{ background: tipoSplit === opt.value ? 'rgba(245,97,26,0.15)' : '#1E2130', border: `1px solid ${tipoSplit === opt.value ? '#F5611A' : '#2a2d3e'}` }}>
+                  <span className="block text-xs font-semibold" style={{ color: tipoSplit === opt.value ? '#F5611A' : '#E5E7EB' }}>{opt.label}</span>
+                  <span className="block text-xs mt-0.5" style={{ color: '#6B7280' }}>{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: '#6B7280' }}>Equipamiento disponible</p>
             <div className="space-y-2">
               {equipOpts.map(opt => (
@@ -262,7 +286,7 @@ function GenModal({ genero, setGenero, equipamiento, setEquipamiento, loading, o
         <div className="px-5 pb-5">
           <button onClick={onConfirm} disabled={loading} className="w-full py-3 rounded-xl text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
             style={{ background: loading ? '#7a3010' : '#F5611A', color: 'white', opacity: loading ? 0.8 : 1 }}>
-            {loading ? <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> Generando plan...</> : <>✨ Generar plan personalizado</>}
+            {loading ? <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> Generando plan...</> : <>Generar plan personalizado</>}
           </button>
         </div>
       </div>
@@ -307,6 +331,7 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
   const [showGenModal, setShowGenModal] = useState(false)
   const [genGenero, setGenGenero] = useState<Genero>('hombre')
   const [genEquipamiento, setGenEquipamiento] = useState<Equipamiento>('gimnasio_completo')
+  const [genTipoSplit, setGenTipoSplit] = useState<TipoSplit>('auto')
 
   // Edit mode
   const [editMode, setEditMode] = useState(false)
@@ -355,6 +380,7 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
           nombre: `Plan 4 Semanas — ${clienteData?.objetivo ?? 'Entrenamiento'}`,
           genero: genGenero,
           equipamiento: genEquipamiento,
+          tipoSplit: genTipoSplit,
         }),
       })
       const data = await res.json()
@@ -473,6 +499,7 @@ export default function RutinaTab({ rutina: fallbackRutina, clientId, onToast }:
       {/* Generador modal */}
       {showGenModal && (
         <GenModal genero={genGenero} setGenero={setGenGenero} equipamiento={genEquipamiento} setEquipamiento={setGenEquipamiento}
+          tipoSplit={genTipoSplit} setTipoSplit={setGenTipoSplit}
           loading={genLoading} onConfirm={handleGenerate} onClose={() => !genLoading && setShowGenModal(false)} />
       )}
 
