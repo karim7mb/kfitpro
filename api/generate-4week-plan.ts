@@ -330,13 +330,13 @@ IMPORTANTE: Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin mark
           content: `Crea la SEMANA 1 (base MEV) de una rutina de 4 semanas usando metodología Nippard para:
 - Nivel: ${nivelLabels[nivel] ?? nivel}
 - Objetivo: ${objLabels[objetivo] ?? objetivo}
-- Días de entrenamiento: ${diasNum} días/semana
+- Días de entrenamiento: ${splitId === 'push_pull' ? '4 días exactos (Push A / Pull A / Push B / Pull B)' : `${diasNum} días/semana`}
 - Split elegido: ${splitId === 'auto' ? 'automático (según días y género)' : splitId.replace('_', ' ').toUpperCase()}
 - Tiempo por sesión: ${tiempoLabels[tiempoEntrenoSemana] ?? tiempoEntrenoSemana}${generoLine}${equipamientoLine}${lesionesLine}
 
 Esta semana 1 es la base MEV. Semanas 2-3 suben volumen e intensidad, semana 4 = deload (volumen -40%, RPE 6-8).
 VERIFICACIÓN OBLIGATORIA antes de generar:
-- Sigue EXACTAMENTE la estructura del split indicado en el system prompt para "${splitId}".
+- Sigue EXACTAMENTE la estructura del split indicado en el system prompt para "${splitId}".${splitId === 'push_pull' ? '\n- PUSH/PULL ×2: genera EXACTAMENTE 4 días (Push A, Pull A, Push B, Pull B). NINGÚN día de piernas. PROHIBIDO añadir un 5º o 6º día.' : ''}
 - Prioriza ejercicios S+ y S del tier list. Hack squat/pendulum/Smith primer compuesto en días de pierna.
 
 Devuelve SOLO este JSON (ids: w1d1, w1d2...; ejercicios: w1e1, w1e2...). Cada ejercicio DEBE incluir: rir, descanso (segundos), y superset: true si es antagonista del anterior:
