@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { CheckCircle2, Clock, Calendar, Settings, X, ArrowLeftRight, Loader2 } from 'lucide-react'
 import {
   fetchRutina4Semanas, fetchSesionesLog, fetchPerfilEntrenamiento, updatePerfilEntrenamiento,
@@ -7,6 +7,7 @@ import {
 
 interface MiCalendarioProps {
   userId: string
+  highlightDate?: string
 }
 
 const DAYS_ES = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
@@ -241,7 +242,7 @@ function SwapModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function MiCalendario({ userId }: MiCalendarioProps) {
+export default function MiCalendario({ userId, highlightDate }: MiCalendarioProps) {
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
   const [sesiones, setSesiones] = useState<SesionLog[]>([])
   const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
@@ -268,6 +269,18 @@ export default function MiCalendario({ userId }: MiCalendarioProps) {
   }, [userId])
 
   useEffect(() => { load() }, [load])
+
+  // Sync calendar selection when Rutina tab changes the workout date
+  const prevHighlight = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!highlightDate || loading || !rutina || highlightDate === prevHighlight.current) return
+    prevHighlight.current = highlightDate
+    const overrides = perfil?.sesionOverrides ?? {}
+    const dias = perfil?.diasSemana ?? []
+    const allDays = buildCalendar(rutina, sesiones, dias, overrides).flat()
+    const found = allDays.find(d => d.date === highlightDate)
+    if (found) setSelected(found)
+  }, [highlightDate, loading, rutina, sesiones, perfil])
 
   const diasSemana: number[] = perfil?.diasSemana ?? []
   const sesionOverrides: Record<string, string> = perfil?.sesionOverrides ?? {}

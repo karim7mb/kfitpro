@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, CheckCircle2, Pencil, X, Check, Droplets, Moon, Zap } from 'lucide-react'
+import { Loader2, CheckCircle2, Pencil, X, Check, Droplets, Moon, Zap, Calendar } from 'lucide-react'
 import { demoRutina } from '../../data/demo'
 import {
   fetchRutina4Semanas, upsertSesionLog, fetchLastSesionForDia,
@@ -11,6 +11,8 @@ interface MiRutinaProps {
   userName: string
   userId: string
   onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
+  date?: string
+  onDateChange?: (d: string) => void
 }
 
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
@@ -55,7 +57,7 @@ function todayDateStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
+export default function MiRutina({ userName, userId, onToast, date, onDateChange }: MiRutinaProps) {
   const demo = isDemo(userId)
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
   const [loading, setLoading] = useState(!demo)
@@ -66,7 +68,12 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
   const [showFeedback, setShowFeedback] = useState(false)
   const [feeling, setFeeling] = useState(7)
   const [note, setNote] = useState('')
-  const [sessionDate, setSessionDate] = useState(todayDateStr())
+  const [sessionDate, setSessionDate] = useState(date ?? todayDateStr())
+
+  const handleDateChange = (d: string) => {
+    setSessionDate(d)
+    onDateChange?.(d)
+  }
   const [sessionDone, setSessionDone] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSesionDate, setLastSesionDate] = useState<string | null>(null)
@@ -345,7 +352,25 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
       {/* Header */}
       <div className="px-5 pt-6 pb-3">
         <h1 className="text-xl font-bold text-white">Hola, {userName.split(' ')[0]}! 👋</h1>
-        <p className="text-sm mt-0.5 capitalize" style={{ color: '#6B7280' }}>{dateStr}</p>
+        <div className="flex items-center justify-between mt-0.5">
+          <p className="text-sm capitalize" style={{ color: '#6B7280' }}>{dateStr}</p>
+          <label className="flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg relative" style={{ background: sessionDate !== todayDateStr() ? 'rgba(245,97,26,0.12)' : '#1E2130', border: `1px solid ${sessionDate !== todayDateStr() ? 'rgba(245,97,26,0.3)' : '#2a2d3e'}` }}>
+            <Calendar size={11} style={{ color: sessionDate !== todayDateStr() ? '#F5611A' : '#6B7280' }} />
+            <span className="text-xs font-medium" style={{ color: sessionDate !== todayDateStr() ? '#F5611A' : '#6B7280' }}>
+              {sessionDate === todayDateStr()
+                ? 'Hoy'
+                : new Date(sessionDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+            </span>
+            <input
+              type="date"
+              value={sessionDate}
+              max={todayDateStr()}
+              onChange={e => e.target.value && handleDateChange(e.target.value)}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              style={{ colorScheme: 'dark' }}
+            />
+          </label>
+        </div>
       </div>
 
       {/* Day picker */}
@@ -645,7 +670,7 @@ export default function MiRutina({ userName, userId, onToast }: MiRutinaProps) {
 
             <p className="text-sm font-medium text-white mb-2">Fecha del entrenamiento</p>
             <input type="date" value={sessionDate} max={todayDateStr()}
-              onChange={e => setSessionDate(e.target.value)}
+              onChange={e => e.target.value && handleDateChange(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none mb-6 cursor-pointer"
               style={{ background: '#1E2130', border: '1px solid #2a2d3e', colorScheme: 'dark' }} />
 

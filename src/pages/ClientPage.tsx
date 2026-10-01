@@ -18,8 +18,14 @@ interface ClientPageProps {
   onToast: (msg: string, type?: 'success' | 'error' | 'info') => void
 }
 
+function todayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function ClientPage({ user, onLogout, onToast }: ClientPageProps) {
   const [tab, setTab] = useState<ClientTab>('inicio')
+  const [sharedDate, setSharedDate] = useState(todayStr)
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [newPwd, setNewPwd] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
@@ -84,11 +90,11 @@ export default function ClientPage({ user, onLogout, onToast }: ClientPageProps)
       {/* Content */}
       <div className="pt-14">
         {tab === 'inicio' && <MiInicio userName={user.nombre} userId={user.id} onNavigate={setTab} />}
-        {tab === 'rutina' && <MiRutina userName={user.nombre} userId={user.id} onToast={onToast} />}
+        {tab === 'rutina' && <MiRutina userName={user.nombre} userId={user.id} onToast={onToast} date={sharedDate} onDateChange={setSharedDate} />}
         {tab === 'nutricion' && <MiNutricion userId={user.id} onToast={onToast} />}
         {tab === 'progreso' && <MiProgreso userId={user.id} onToast={onToast} />}
         {tab === 'chat' && <MiChat userName={user.nombre} userId={user.id} onToast={onToast} />}
-        {tab === 'calendario' && <MiCalendario userId={user.id} />}
+        {tab === 'calendario' && <MiCalendario userId={user.id} highlightDate={sharedDate} />}
       </div>
 
       <BottomNav current={tab} onChange={setTab} />
