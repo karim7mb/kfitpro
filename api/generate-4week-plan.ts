@@ -105,17 +105,18 @@ Genera ${diasNum} días Full Body rotando énfasis y orden muscular:
 - Full Body C (si ≥3 días): Prensa 45° → Press hombros máquina → Pull-up → Aperturas cable → Curl inclinado → Dips
 Reglas: 1 compuesto por grupo principal por sesión; Deltoides lateral SIEMPRE presente en todos los días.
 ` : splitId === 'push_pull' ? `
-SPLIT ELEGIDO: PUSH / PULL × 2 — 4 DÍAS (piernas integradas en push y pull, sin día de pierna separado)
+SPLIT ELEGIDO: PUSH / PULL × 2 — 4 DÍAS SOLO TREN SUPERIOR (SIN PIERNAS EN NINGÚN DÍA)
+PROHIBIDO: No incluir ningún ejercicio de piernas (sentadilla, hack squat, prensa, extensión cuáds, RDL, curl femoral, hip thrust, abducción, gemelos, zancadas).
 Estructura obligatoria EXACTA — genera exactamente 4 días:
-• Día 1 Push A [6-7 ejercicios]: Pecho primario + Quads + Deltoides lateral + Tríceps
-  OBLIGATORIO: press máquina de pecho O press inclinado barra | hack squat O extensión cuáds | elevaciones laterales cable ×2 | overhead tríceps polea
-• Día 2 Pull A [5-6 ejercicios]: Espalda primaria + Isquios/Glúteos + Bíceps
-  OBLIGATORIO: remo Meadows O jalón neutro un brazo | RDL O curl femoral SENTADO | hip thrust | curl bayesiano en cable
-• Día 3 Push B [6-7 ejercicios]: Pecho (ángulo distinto al Día 1) + Quads variación + Hombros + Tríceps variación
-  OBLIGATORIO: press inclinado mancuernas O otro ángulo distinto | prensa 45° O sentadilla búlgara | press hombros máquina + elevaciones lat cable | press francés O dips tríceps
-• Día 4 Pull B [5-6 ejercicios]: Espalda (variación) + Glúteos/Isquios variación + Bíceps variación
-  OBLIGATORIO: remo soporte pectoral O remo en cable | hip thrust variación O curl femoral tumbado | curl inclinado O curl predicador mancuerna
-RESULTADO Push/Pull ×2: Pecho 2x ✓ Espalda 2x ✓ Deltoides lat 2x ✓ Quads 2x ✓ Isquios 2x ✓ Glúteos 2x ✓ Bíceps 2x ✓ Tríceps 2x ✓
+• Día 1 Push A [5-6 ejercicios]: Pecho primario + Deltoides lateral + Tríceps
+  OBLIGATORIO: press máquina de pecho | aperturas en cable sentado | elevaciones laterales cable ×2 | extensión tríceps overhead en polea
+• Día 2 Pull A [5-6 ejercicios]: Espalda primaria + Deltoides posterior + Bíceps
+  OBLIGATORIO: remo Meadows O jalón un brazo agarre neutro | remo en cable O remo soporte pectoral | pájaro pec deck inverso | curl bayesiano en cable
+• Día 3 Push B [5-6 ejercicios]: Pecho (ángulo distinto) + Hombros + Tríceps variación
+  OBLIGATORIO: press inclinado mancuernas O press inclinado barra | press hombros máquina | elevaciones laterales cable variación | press francés EZ O dips tríceps
+• Día 4 Pull B [5-6 ejercicios]: Espalda variación + Bíceps variación + Deltoides posterior
+  OBLIGATORIO: jalón neutro dominadas O pull-up | remo mancuerna un brazo O remo con impulso | curl predicador O curl inclinado | curl martillo
+RESULTADO Push/Pull ×2 tren superior: Pecho 2x ✓ Espalda 2x ✓ Deltoides lat 2x ✓ Deltoides posterior 2x ✓ Bíceps 2x ✓ Tríceps 2x ✓
 ` : splitId === 'upper_lower' ? `
 SPLIT ELEGIDO: UPPER / LOWER${genero === 'mujer' ? ` — MUJER DOBLE FRECUENCIA:
 • Día 1 Upper A: PRIMARY empuje (2 pecho + 1-2 deltoides lateral + 1 tríceps) + SECUNDARIO tracción (1 remo/jalón + 1 bíceps)
