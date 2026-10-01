@@ -513,6 +513,8 @@ export interface PerfilEntrenamiento {
   tiempoIntentando: string
   entrenadorPrevio: boolean
   lesiones: string[]
+  diasSemana?: number[]                     // 0=Lun … 6=Dom, elegidos por el cliente
+  sesionOverrides?: Record<string, string>  // 'YYYY-MM-DD' → dia_id (cambios puntuales)
 }
 
 export async function fetchPerfilNutricional(clienteId: string): Promise<PerfilNutricional | null> {
