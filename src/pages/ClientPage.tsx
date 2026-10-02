@@ -94,7 +94,7 @@ export default function ClientPage({ user, onLogout, onToast }: ClientPageProps)
         {tab === 'nutricion' && <MiNutricion userId={user.id} onToast={onToast} />}
         {tab === 'progreso' && <MiProgreso userId={user.id} onToast={onToast} />}
         {tab === 'chat' && <MiChat userName={user.nombre} userId={user.id} onToast={onToast} />}
-        {tab === 'calendario' && <MiCalendario userId={user.id} highlightDate={sharedDate} />}
+        {tab === 'calendario' && <MiCalendario userId={user.id} highlightDate={sharedDate} onToast={onToast} />}
       </div>
 
       <BottomNav current={tab} onChange={setTab} />

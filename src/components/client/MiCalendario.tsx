@@ -8,6 +8,7 @@ import {
 interface MiCalendarioProps {
   userId: string
   highlightDate?: string
+  onToast?: (msg: string, type?: 'success' | 'error' | 'info') => void
 }
 
 const DAYS_ES = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
@@ -242,7 +243,7 @@ function SwapModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function MiCalendario({ userId, highlightDate }: MiCalendarioProps) {
+export default function MiCalendario({ userId, highlightDate, onToast }: MiCalendarioProps) {
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
   const [sesiones, setSesiones] = useState<SesionLog[]>([])
   const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
@@ -292,6 +293,17 @@ export default function MiCalendario({ userId, highlightDate }: MiCalendarioProp
       entrenadorPrevio: false, lesiones: [],
     }
 
+  const handleRlsError = (e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg === 'RLS_BLOCKED') {
+      onToast?.('Sin permisos para guardar — ver consola', 'error')
+      console.error('[KFitPro] updatePerfilEntrenamiento: RLS blocked the update. Run in Supabase SQL editor:\n\nCREATE POLICY "cliente_update_own_perfil" ON kfitpro.clientes\nFOR UPDATE USING (usuario_id = auth.uid()) WITH CHECK (usuario_id = auth.uid());\n\nALSO grant UPDATE on perfil_entrenamiento column if column-level security is enabled.')
+    } else {
+      onToast?.('Error al guardar: ' + msg, 'error')
+      console.error('[KFitPro] updatePerfilEntrenamiento error:', e)
+    }
+  }
+
   const saveDiasSemana = async (newDias: number[]) => {
     setSaving(true)
     try {
@@ -299,30 +311,42 @@ export default function MiCalendario({ userId, highlightDate }: MiCalendarioProp
       await updatePerfilEntrenamiento(userId, updated)
       setPerfil(updated)
       setShowDayPicker(false)
+      onToast?.('Horario guardado ✓', 'success')
+    } catch (e) {
+      handleRlsError(e)
     } finally {
       setSaving(false)
     }
   }
 
   const saveOverride = async (date: string, diaId: string) => {
-    const updated: PerfilEntrenamiento = {
-      ...getOrCreatePerfil(),
-      sesionOverrides: { ...sesionOverrides, [date]: diaId },
+    try {
+      const updated: PerfilEntrenamiento = {
+        ...getOrCreatePerfil(),
+        sesionOverrides: { ...sesionOverrides, [date]: diaId },
+      }
+      await updatePerfilEntrenamiento(userId, updated)
+      setPerfil(updated)
+      setShowSwap(false)
+      setSelected(null)
+      onToast?.('Sesión cambiada ✓', 'success')
+    } catch (e) {
+      handleRlsError(e)
     }
-    await updatePerfilEntrenamiento(userId, updated)
-    setPerfil(updated)
-    setShowSwap(false)
-    setSelected(null)
   }
 
   const removeOverride = async (date: string) => {
-    const newOverrides = { ...sesionOverrides }
-    delete newOverrides[date]
-    const updated: PerfilEntrenamiento = { ...getOrCreatePerfil(), sesionOverrides: newOverrides }
-    await updatePerfilEntrenamiento(userId, updated)
-    setPerfil(updated)
-    setShowSwap(false)
-    setSelected(null)
+    try {
+      const newOverrides = { ...sesionOverrides }
+      delete newOverrides[date]
+      const updated: PerfilEntrenamiento = { ...getOrCreatePerfil(), sesionOverrides: newOverrides }
+      await updatePerfilEntrenamiento(userId, updated)
+      setPerfil(updated)
+      setShowSwap(false)
+      setSelected(null)
+    } catch (e) {
+      handleRlsError(e)
+    }
   }
 
   if (loading) {

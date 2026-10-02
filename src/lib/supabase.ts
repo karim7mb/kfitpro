@@ -546,11 +546,13 @@ export async function fetchPerfilEntrenamiento(clienteId: string): Promise<Perfi
 }
 
 export async function updatePerfilEntrenamiento(clienteId: string, perfil: PerfilEntrenamiento): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clientes')
     .update({ perfil_entrenamiento: perfil })
     .eq('usuario_id', clienteId)
+    .select('usuario_id')
   if (error) throw error
+  if (!data || data.length === 0) throw new Error('RLS_BLOCKED')
 }
 
 // ─── 4-WEEK PLAN ────────────────────────────────────────────────────────────
