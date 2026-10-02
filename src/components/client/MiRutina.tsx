@@ -4,7 +4,8 @@ import { demoRutina } from '../../data/demo'
 import {
   fetchRutina4Semanas, upsertSesionLog, fetchLastSesionForDia,
   upsertProgresoDiario, fetchProgresoHoy,
-  type Rutina4Semanas, type DiaRutina, type ProgresoDiario,
+  fetchPerfilEntrenamiento, updatePerfilEntrenamiento,
+  type Rutina4Semanas, type DiaRutina, type ProgresoDiario, type PerfilEntrenamiento,
 } from '../../lib/supabase'
 
 interface MiRutinaProps {
@@ -79,6 +80,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const [lastSesionDate, setLastSesionDate] = useState<string | null>(null)
   const [ejOverrides, setEjOverrides] = useState<Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }>>({})
   const [editingEj, setEditingEj] = useState<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number } | null>(null)
+  const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
   const [progreso, setProgreso] = useState<ProgresoDiario | null>(null)
   const [hidratacion, setHidratacion] = useState(0)
   const [litrosInput, setLitrosInput] = useState<number | ''>('')
@@ -94,11 +96,23 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
       return
     }
     setLoading(true)
-    const [r, todayProg] = await Promise.all([
+    const [r, todayProg, p] = await Promise.all([
       fetchRutina4Semanas(userId),
       fetchProgresoHoy(userId),
+      fetchPerfilEntrenamiento(userId),
     ])
     setRutina(r)
+    setPerfil(p)
+    if (p?.ejercicioOverrides && r) {
+      const allEjs = (r.semanas?.flatMap(s => s.dias?.flatMap(d => d.ejercicios) ?? []) ?? r.dias?.flatMap(d => d.ejercicios) ?? [])
+      const ejMap = new Map(allEjs.map(e => [e.id, e]))
+      const mapped: Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }> = {}
+      for (const [id, ov] of Object.entries(p.ejercicioOverrides)) {
+        const orig = ejMap.get(id)
+        if (orig) mapped[id] = { nombre: ov.nombre ?? orig.nombre, series: ov.series ?? orig.series, repsMin: ov.repsMin ?? orig.repsMin, repsMax: ov.repsMax ?? orig.repsMax }
+      }
+      if (Object.keys(mapped).length > 0) setEjOverrides(mapped)
+    }
     if (r) {
       const dias = r.semanas?.[calcSemanaActual(r.fecha_inicio) - 1]?.dias ?? r.dias ?? []
       const idx = getTodayDiaIdx(dias)
@@ -269,13 +283,22 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     applySessionState(initPesos, initReps, last, local)
   }
 
-  const saveEjEdit = () => {
+  const saveEjEdit = async () => {
     if (!editingEj) return
-    setEjOverrides(prev => ({ ...prev, [editingEj.id]: { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } }))
+    const newOverride = { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax }
+    setEjOverrides(prev => ({ ...prev, [editingEj.id]: newOverride }))
     setSeriesDone(prev => { const n = { ...prev }; Object.keys(n).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete n[k] }); return n })
     setPesos(prev => { const n = { ...prev }; Object.keys(n).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete n[k] }); return n })
     setReps(prev => { const n = { ...prev }; Object.keys(n).forEach(k => { if (k.startsWith(editingEj.id + '-')) delete n[k] }); return n })
     setEditingEj(null)
+    if (!demo) {
+      try {
+        const newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: { ...(perfil?.ejercicioOverrides ?? {}), [editingEj.id]: { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } } }
+        await updatePerfilEntrenamiento(userId, newPerfil)
+        setPerfil(newPerfil)
+        onToast('Ejercicio actualizado ✓', 'success')
+      } catch { onToast('Error al guardar cambios', 'error') }
+    }
   }
 
   const handleSubmitFeedback = async () => {
@@ -647,8 +670,19 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
               ))}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => { setEjOverrides(prev => { const n = { ...prev }; delete n[editingEj.id]; return n }); setEditingEj(null) }}
-                className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: '#1E2130', color: '#6B7280' }}>
+              <button onClick={async () => {
+                setEjOverrides(prev => { const n = { ...prev }; delete n[editingEj.id]; return n })
+                setEditingEj(null)
+                if (!demo) {
+                  try {
+                    const newEjOv = { ...(perfil?.ejercicioOverrides ?? {}) }
+                    delete newEjOv[editingEj.id]
+                    const newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: newEjOv }
+                    await updatePerfilEntrenamiento(userId, newPerfil)
+                    setPerfil(newPerfil)
+                  } catch { onToast('Error al restablecer', 'error') }
+                }
+              }} className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: '#1E2130', color: '#6B7280' }}>
                 Restablecer
               </button>
               <button onClick={saveEjEdit}
