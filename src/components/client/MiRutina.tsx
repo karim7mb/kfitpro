@@ -79,8 +79,10 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const [saving, setSaving] = useState(false)
   const [lastSesionDate, setLastSesionDate] = useState<string | null>(null)
   const [ejOverrides, setEjOverrides] = useState<Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }>>({})
-  const [editingEj, setEditingEj] = useState<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number } | null>(null)
+  const [editingEj, setEditingEj] = useState<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number; isExtra?: boolean } | null>(null)
   const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
+  const [addingEj, setAddingEj] = useState(false)
+  const [newEjForm, setNewEjForm] = useState({ nombre: '', series: 3, repsMin: 8, repsMax: 12 })
   const [progreso, setProgreso] = useState<ProgresoDiario | null>(null)
   const [hidratacion, setHidratacion] = useState(0)
   const [litrosInput, setLitrosInput] = useState<number | ''>('')
@@ -224,7 +226,9 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const todayDiaIdx = getTodayDiaIdx(dias)
   const todayWorkout: DiaRutina | null = dias[selectedDiaIdx] ?? null
 
-  const totalSeries = todayWorkout?.ejercicios.reduce((acc, e) => acc + (ejOverrides[e.id]?.series ?? e.series), 0) ?? 0
+  const extraEjsForDay = todayWorkout ? (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []) : []
+  const allEjsForDay = todayWorkout ? [...todayWorkout.ejercicios, ...extraEjsForDay.map(e => ({ ...e, peso: 0, rpe: 0 }))] : []
+  const totalSeries = allEjsForDay.reduce((acc, e) => acc + (ejOverrides[e.id]?.series ?? e.series), 0)
   const doneCount = Object.values(seriesDone).filter(Boolean).length
   const allDone = totalSeries > 0 && doneCount >= totalSeries
   const todayAlreadySaved = lastSesionDate === todayDateStr()
@@ -232,7 +236,8 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const autoSave = useCallback(async (newDone: Record<string, boolean>, curPesos: Record<string, string>, curReps: Record<string, string>) => {
     if (demo || !rutina || !todayWorkout) return
     const seriesMap: Record<string, { serie: number; reps?: number; peso?: number; completada: boolean }[]> = {}
-    for (const ej of todayWorkout.ejercicios) {
+    const ejsToSave = [...todayWorkout.ejercicios, ...(perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []).map(e => ({ ...e, peso: 0, rpe: 0 }))]
+    for (const ej of ejsToSave) {
       seriesMap[ej.id] = Array.from({ length: ejOverrides[ej.id]?.series ?? ej.series }, (_, i) => {
         const k = serieKey(ej.id, i)
         return { serie: i + 1, reps: curReps[k] ? Number(curReps[k]) : undefined, peso: curPesos[k] ? Number(curPesos[k]) : undefined, completada: newDone[k] ?? false }
@@ -283,6 +288,26 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     applySessionState(initPesos, initReps, last, local)
   }
 
+  const addEjercicio = async () => {
+    if (!newEjForm.nombre.trim() || !todayWorkout) return
+    const id = `extra_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    const newEj = { id, nombre: newEjForm.nombre.trim(), series: newEjForm.series, repsMin: newEjForm.repsMin, repsMax: newEjForm.repsMax }
+    const diaId = todayWorkout.id
+    const prevExtra = perfil?.ejerciciosExtra?.[diaId] ?? []
+    const newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(perfil?.ejerciciosExtra ?? {}), [diaId]: [...prevExtra, newEj] } }
+    setAddingEj(false)
+    setNewEjForm({ nombre: '', series: 3, repsMin: 8, repsMax: 12 })
+    if (!demo) {
+      try {
+        await updatePerfilEntrenamiento(userId, newPerfil)
+        setPerfil(newPerfil)
+        onToast('Ejercicio añadido ✓', 'success')
+      } catch { onToast('Error al añadir ejercicio', 'error') }
+    } else {
+      setPerfil(newPerfil)
+    }
+  }
+
   const saveEjEdit = async () => {
     if (!editingEj) return
     const newOverride = { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax }
@@ -293,7 +318,15 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     setEditingEj(null)
     if (!demo) {
       try {
-        const newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: { ...(perfil?.ejercicioOverrides ?? {}), [editingEj.id]: { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } } }
+        let newPerfil: PerfilEntrenamiento
+        if (editingEj.isExtra && todayWorkout) {
+          const diaId = todayWorkout.id
+          const prevExtra = perfil?.ejerciciosExtra?.[diaId] ?? []
+          const updated = prevExtra.map(e => e.id === editingEj.id ? { ...e, nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } : e)
+          newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(perfil?.ejerciciosExtra ?? {}), [diaId]: updated } }
+        } else {
+          newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: { ...(perfil?.ejercicioOverrides ?? {}), [editingEj.id]: { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } } }
+        }
         await updatePerfilEntrenamiento(userId, newPerfil)
         setPerfil(newPerfil)
         onToast('Ejercicio actualizado ✓', 'success')
@@ -308,7 +341,8 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
         const sensacion: 'facil' | 'justo' | 'brutal' =
           feeling >= 7 ? 'facil' : feeling >= 4 ? 'justo' : 'brutal'
         const seriesMap: Record<string, { serie: number; reps?: number; peso?: number; completada: boolean }[]> = {}
-        for (const ej of todayWorkout.ejercicios) {
+        const ejsToSubmit = [...todayWorkout.ejercicios, ...(perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []).map(e => ({ ...e, peso: 0, rpe: 0 }))]
+        for (const ej of ejsToSubmit) {
           seriesMap[ej.id] = Array.from({ length: ejOverrides[ej.id]?.series ?? ej.series }, (_, i) => {
             const k = serieKey(ej.id, i)
             return { serie: i + 1, reps: reps[k] ? Number(reps[k]) : undefined, peso: pesos[k] ? Number(pesos[k]) : undefined, completada: seriesDone[k] ?? false }
@@ -462,77 +496,92 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
 
           {/* Exercises */}
           <div className="mx-4 space-y-3 mb-4">
-            {todayWorkout.ejercicios.map((ej, ejIdx) => {
-              const ov = ejOverrides[ej.id]
-              const nombre = ov?.nombre ?? ej.nombre
-              const series = ov?.series ?? ej.series
-              const repsMin = ov?.repsMin ?? ej.repsMin
-              const repsMax = ov?.repsMax ?? ej.repsMax
-              const ejDone = Array.from({ length: series }, (_, i) => seriesDone[serieKey(ej.id, i)] ?? false).every(Boolean)
-              return (
-                <div key={ej.id} className="rounded-2xl overflow-hidden" style={{ background: '#161820', border: `1px solid ${ejDone ? 'rgba(16,185,129,0.3)' : '#1E2130'}` }}>
-                  <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: '1px solid #1E2130' }}>
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      style={{ background: ejDone ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: ejDone ? '#10B981' : '#F5611A' }}>
-                      {ejDone ? '✓' : ejIdx + 1}
+            {(() => {
+              const extraEjs = (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []).map(e => ({ ...e, peso: 0, rpe: 0, isExtra: true as const }))
+              const allEjs = [
+                ...todayWorkout.ejercicios.map(e => ({ ...e, isExtra: false as const })),
+                ...extraEjs,
+              ]
+              return allEjs.map((ej, ejIdx) => {
+                const ov = ejOverrides[ej.id]
+                const nombre = ov?.nombre ?? ej.nombre
+                const series = ov?.series ?? ej.series
+                const repsMin = ov?.repsMin ?? ej.repsMin
+                const repsMax = ov?.repsMax ?? ej.repsMax
+                const ejDone = Array.from({ length: series }, (_, i) => seriesDone[serieKey(ej.id, i)] ?? false).every(Boolean)
+                return (
+                  <div key={ej.id} className="rounded-2xl overflow-hidden" style={{ background: '#161820', border: `1px solid ${ejDone ? 'rgba(16,185,129,0.3)' : ej.isExtra ? 'rgba(139,92,246,0.25)' : '#1E2130'}` }}>
+                    <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: '1px solid #1E2130' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ background: ejDone ? 'rgba(16,185,129,0.2)' : ej.isExtra ? 'rgba(139,92,246,0.15)' : 'rgba(245,97,26,0.15)', color: ejDone ? '#10B981' : ej.isExtra ? '#8B5CF6' : '#F5611A' }}>
+                        {ejDone ? '✓' : ejIdx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-white truncate">{nombre}{ov && <span className="ml-1.5 text-xs" style={{ color: '#F5611A' }}>✎</span>}{ej.isExtra && !ov && <span className="ml-1.5 text-xs" style={{ color: '#8B5CF6' }}>+</span>}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                          {series} series · {repsMin}–{repsMax} reps{ej.peso > 0 ? ` · Ref: ${ej.peso} kg` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setEditingEj({ id: ej.id, nombre, series, repsMin, repsMax, isExtra: ej.isExtra })}
+                        className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7280' }}
+                      >
+                        <Pencil style={{ width: 13, height: 13 }} />
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-white truncate">{nombre}{ov && <span className="ml-1.5 text-xs" style={{ color: '#F5611A' }}>✎</span>}</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-                        {series} series · {repsMin}–{repsMax} reps{ej.peso > 0 ? ` · Ref: ${ej.peso} kg` : ''}
-                      </p>
+                    <div className="p-3 space-y-2">
+                      {Array.from({ length: series }, (_, i) => {
+                        const k = serieKey(ej.id, i)
+                        const done = seriesDone[k] ?? false
+                        return (
+                          <div key={k} className="rounded-xl p-3" style={{ background: done ? 'rgba(16,185,129,0.07)' : '#0D0E13', border: `1px solid ${done ? 'rgba(16,185,129,0.25)' : '#1E2130'}` }}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold" style={{ color: done ? '#10B981' : '#6B7280' }}>Serie {i + 1}</span>
+                              <button
+                                onClick={() => toggleSerie(k)}
+                                className="px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all"
+                                style={{ background: done ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: done ? '#10B981' : '#F5611A', border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : 'rgba(245,97,26,0.3)'}` }}
+                              >
+                                {done ? '✓ Guardado' : 'Guardar'}
+                              </button>
+                            </div>
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Peso (kg)</label>
+                                <input type="number" inputMode="decimal" placeholder="0" value={pesos[k] ?? ''}
+                                  onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
+                                  disabled={done}
+                                  className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white outline-none text-center"
+                                  style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Reps</label>
+                                <input type="number" inputMode="numeric" placeholder="0" value={reps[k] ?? ''}
+                                  onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
+                                  disabled={done}
+                                  className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white outline-none text-center"
+                                  style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                    <button
-                      onClick={() => setEditingEj({ id: ej.id, nombre, series, repsMin, repsMax })}
-                      className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7280' }}
-                    >
-                      <Pencil style={{ width: 13, height: 13 }} />
-                    </button>
                   </div>
-                  <div className="p-3 space-y-2">
-                    {Array.from({ length: series }, (_, i) => {
-                      const k = serieKey(ej.id, i)
-                      const done = seriesDone[k] ?? false
-                      return (
-                        <div key={k} className="rounded-xl p-3" style={{ background: done ? 'rgba(16,185,129,0.07)' : '#0D0E13', border: `1px solid ${done ? 'rgba(16,185,129,0.25)' : '#1E2130'}` }}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold" style={{ color: done ? '#10B981' : '#6B7280' }}>Serie {i + 1}</span>
-                            <button
-                              onClick={() => toggleSerie(k)}
-                              className="px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all"
-                              style={{ background: done ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: done ? '#10B981' : '#F5611A', border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : 'rgba(245,97,26,0.3)'}` }}
-                            >
-                              {done ? '✓ Guardado' : 'Guardar'}
-                            </button>
-                          </div>
-                          <div className="flex gap-3">
-                            <div className="flex-1">
-                              <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Peso (kg)</label>
-                              <input type="number" inputMode="decimal" placeholder="0" value={pesos[k] ?? ''}
-                                onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
-                                disabled={done}
-                                className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white outline-none text-center"
-                                style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Reps</label>
-                              <input type="number" inputMode="numeric" placeholder="0" value={reps[k] ?? ''}
-                                onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
-                                disabled={done}
-                                className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white outline-none text-center"
-                                style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })
+            })()}
+            {/* Add exercise button */}
+            <button
+              onClick={() => setAddingEj(true)}
+              className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer flex items-center justify-center gap-2"
+              style={{ background: 'transparent', border: '1px dashed #2a2d3e', color: '#6B7280' }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Añadir ejercicio
+            </button>
           </div>
         </>
       ) : (
@@ -639,6 +688,53 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
         </div>
       </div>
 
+      {/* Add exercise modal */}
+      {addingEj && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full rounded-t-3xl p-6 pb-10" style={{ background: '#161820', border: '1px solid #1E2130', maxWidth: 480 }}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-bold text-white">Añadir ejercicio</h3>
+              <button onClick={() => { setAddingEj(false); setNewEjForm({ nombre: '', series: 3, repsMin: 8, repsMax: 12 }) }} className="cursor-pointer" style={{ color: '#6B7280' }}>
+                <X style={{ width: 20, height: 20 }} />
+              </button>
+            </div>
+            <label className="text-xs mb-1.5 block" style={{ color: '#9CA3AF' }}>Nombre del ejercicio</label>
+            <input
+              type="text"
+              placeholder="Ej: Press inclinado mancuernas"
+              value={newEjForm.nombre}
+              onChange={e => setNewEjForm(prev => ({ ...prev, nombre: e.target.value }))}
+              autoFocus
+              className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none mb-4"
+              style={{ background: '#1E2130', border: '1px solid #2a2d3e' }}
+            />
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {([
+                { label: 'Series', key: 'series' as const, min: 1, max: 10 },
+                { label: 'Reps mín', key: 'repsMin' as const, min: 1, max: 30 },
+                { label: 'Reps máx', key: 'repsMax' as const, min: 1, max: 30 },
+              ] as const).map(({ label, key, min, max }) => (
+                <div key={key}>
+                  <label className="text-xs mb-1.5 block" style={{ color: '#9CA3AF' }}>{label}</label>
+                  <input type="number" min={min} max={max} value={newEjForm[key]}
+                    onChange={e => setNewEjForm(prev => ({ ...prev, [key]: Math.max(min, Number(e.target.value)) }))}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none text-center"
+                    style={{ background: '#1E2130', border: '1px solid #2a2d3e' }} />
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={addEjercicio}
+              disabled={!newEjForm.nombre.trim()}
+              className="w-full py-3 rounded-2xl text-sm font-bold text-white cursor-pointer flex items-center justify-center gap-2"
+              style={{ background: newEjForm.nombre.trim() ? '#F5611A' : '#2a2d3e', opacity: newEjForm.nombre.trim() ? 1 : 0.5 }}
+            >
+              <Check style={{ width: 14, height: 14 }} /> Añadir
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Edit exercise modal */}
       {editingEj && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
@@ -671,19 +767,29 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
             </div>
             <div className="flex gap-3">
               <button onClick={async () => {
-                setEjOverrides(prev => { const n = { ...prev }; delete n[editingEj.id]; return n })
+                const eid = editingEj.id
+                const isExtra = editingEj.isExtra
+                setEjOverrides(prev => { const n = { ...prev }; delete n[eid]; return n })
                 setEditingEj(null)
                 if (!demo) {
                   try {
-                    const newEjOv = { ...(perfil?.ejercicioOverrides ?? {}) }
-                    delete newEjOv[editingEj.id]
-                    const newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: newEjOv }
+                    let newPerfil: PerfilEntrenamiento
+                    if (isExtra && todayWorkout) {
+                      const diaId = todayWorkout.id
+                      const filtered = (perfil?.ejerciciosExtra?.[diaId] ?? []).filter(e => e.id !== eid)
+                      newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(perfil?.ejerciciosExtra ?? {}), [diaId]: filtered } }
+                    } else {
+                      const newEjOv = { ...(perfil?.ejercicioOverrides ?? {}) }
+                      delete newEjOv[eid]
+                      newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: newEjOv }
+                    }
                     await updatePerfilEntrenamiento(userId, newPerfil)
                     setPerfil(newPerfil)
-                  } catch { onToast('Error al restablecer', 'error') }
+                    onToast(isExtra ? 'Ejercicio eliminado' : 'Valores restablecidos', 'success')
+                  } catch { onToast('Error', 'error') }
                 }
-              }} className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: '#1E2130', color: '#6B7280' }}>
-                Restablecer
+              }} className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: editingEj.isExtra ? 'rgba(239,68,68,0.1)' : '#1E2130', color: editingEj.isExtra ? '#EF4444' : '#6B7280' }}>
+                {editingEj.isExtra ? 'Eliminar' : 'Restablecer'}
               </button>
               <button onClick={saveEjEdit}
                 className="flex-1 py-3 rounded-2xl text-sm font-bold text-white cursor-pointer flex items-center justify-center gap-2" style={{ background: '#F5611A' }}>
