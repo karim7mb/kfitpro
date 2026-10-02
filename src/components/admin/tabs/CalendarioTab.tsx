@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, Clock, Calendar } from 'lucide-react'
 import {
-  fetchRutina4Semanas, fetchSesionesLog,
+  fetchRutina4Semanas, fetchSesionesLog, fetchPerfilEntrenamiento,
   type Rutina4Semanas, type SesionLog, type DiaRutina,
 } from '../../../lib/supabase'
 
@@ -41,9 +41,15 @@ interface CalDay {
   sesion?: SesionLog
   isToday: boolean
   isPast: boolean
+  isOverride: boolean
 }
 
-function buildCalendar(rutina: Rutina4Semanas, sesiones: SesionLog[]): CalDay[][] {
+function buildCalendar(
+  rutina: Rutina4Semanas,
+  sesiones: SesionLog[],
+  diasSemana: number[],
+  sesionOverrides: Record<string, string>,
+): CalDay[][] {
   const fechaInicio = rutina.fecha_inicio ?? today()
   const weeks: CalDay[][] = []
   const sesionMap = new Map(sesiones.map(s => [s.fecha + '_' + s.dia_id, s]))
@@ -52,14 +58,19 @@ function buildCalendar(rutina: Rutina4Semanas, sesiones: SesionLog[]): CalDay[][
   for (let w = 0; w < 4; w++) {
     const semanaData = rutina.semanas?.[w]
     const dias = semanaData?.dias ?? rutina.dias ?? []
-    // ≤5 days → Mon–Fri (slots 0-4); 6+ days → full week (slots 0-6)
     const diasMap = new Map<number, DiaRutina>()
     const total = dias.length
-    const maxSlot = total <= 5 ? 4 : 6
-    dias.forEach((dia, i) => {
-      const slot = total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1))
-      diasMap.set(slot, dia)
-    })
+
+    if (diasSemana.length > 0) {
+      const sorted = [...diasSemana].sort((a, b) => a - b)
+      dias.forEach((dia, i) => { if (i < sorted.length) diasMap.set(sorted[i], dia) })
+    } else {
+      const maxSlot = total <= 5 ? 4 : 6
+      dias.forEach((dia, i) => {
+        const slot = total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1))
+        diasMap.set(slot, dia)
+      })
+    }
 
     const weekStart = addDays(fechaInicio, w * 7)
     const weekStartMon = getStartOfWeekMon(weekStart)
@@ -67,17 +78,23 @@ function buildCalendar(rutina: Rutina4Semanas, sesiones: SesionLog[]): CalDay[][
 
     for (let d = 0; d < 7; d++) {
       const date = addDays(weekStartMon, d)
-      const dia = diasMap.get(d) ?? null
-      const sesionKey = dia ? date + '_' + dia.id : ''
-      const sesion = sesionKey ? sesionMap.get(sesionKey) : undefined
+      let dia = diasMap.get(d) ?? null
+      let isOverride = false
 
+      const overrideDiaId = sesionOverrides[date]
+      if (overrideDiaId) {
+        const weekDias = semanaData?.dias ?? rutina.dias ?? []
+        const overrideDia = weekDias.find(dd => dd.id === overrideDiaId) ?? null
+        if (overrideDia) { dia = overrideDia; isOverride = true }
+      }
+
+      const sesionKey = dia ? date + '_' + dia.id : ''
       row.push({
-        date,
-        semanaNum: w + 1,
-        dia,
-        sesion,
+        date, semanaNum: w + 1, dia,
+        sesion: sesionKey ? sesionMap.get(sesionKey) : undefined,
         isToday: date === todayStr,
         isPast: date < todayStr,
+        isOverride,
       })
     }
     weeks.push(row)
@@ -88,6 +105,8 @@ function buildCalendar(rutina: Rutina4Semanas, sesiones: SesionLog[]): CalDay[][
 export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: CalendarioTabProps) {
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
   const [sesiones, setSesiones] = useState<SesionLog[]>([])
+  const [diasSemana, setDiasSemana] = useState<number[]>([])
+  const [sesionOverrides, setSesionOverrides] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<CalDay | null>(null)
 
@@ -95,12 +114,15 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
     setLoading(true)
     try {
       if (isDemo) return
-      const [r, logs] = await Promise.all([
+      const [r, logs, perfil] = await Promise.all([
         fetchRutina4Semanas(clienteId),
         fetchSesionesLog(clienteId),
+        fetchPerfilEntrenamiento(clienteId),
       ])
       setRutina(r)
       setSesiones(logs)
+      setDiasSemana(perfil?.diasSemana ?? [])
+      setSesionOverrides(perfil?.sesionOverrides ?? {})
     } finally {
       setLoading(false)
     }
@@ -122,7 +144,7 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
     )
   }
 
-  const calendar = buildCalendar(rutina, sesiones)
+  const calendar = buildCalendar(rutina, sesiones, diasSemana, sesionOverrides)
   const totalSessions = calendar.flat().filter(d => d.dia !== null).length
   const completedSessions = calendar.flat().filter(d => d.sesion?.completada).length
 
@@ -193,7 +215,7 @@ function calcCurrentWeek(rutina: Rutina4Semanas): number {
   return Math.min(4, Math.max(1, Math.floor(ms / (1000 * 60 * 60 * 24 * 7)) + 1))
 }
 
-function DayCell({ day, onClick, isSelected }: { day: CalDay; onClick: () => void; isSelected: boolean }) {
+function DayCell({ day, onClick, isSelected }: { day: CalDay; onClick: () => void; isSelected: boolean; }) {
   const isTraining = day.dia !== null
   const isDone = day.sesion?.completada
   const date = new Date(day.date + 'T00:00:00')
@@ -223,6 +245,9 @@ function DayCell({ day, onClick, isSelected }: { day: CalDay; onClick: () => voi
       {!isDone && isTraining && day.isToday && <Clock size={12} style={{ color: 'white' }} />}
       {!isDone && isTraining && day.isPast && (
         <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#ef4444aa' }} />
+      )}
+      {day.isOverride && (
+        <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: '#8B5CF6' }} />
       )}
     </button>
   )
