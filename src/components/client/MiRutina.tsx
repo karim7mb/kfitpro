@@ -306,10 +306,16 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     setNewEjForm({ nombre: '', series: 3, repsMin: 8, repsMax: 12 })
     if (!demo) {
       try {
-        await updatePerfilEntrenamiento(userId, newPerfil)
-        setPerfil(newPerfil)
+        const freshPerfil = await fetchPerfilEntrenamiento(userId)
+        const mergedPerfil = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(freshPerfil?.ejerciciosExtra ?? {}), [diaId]: [...(freshPerfil?.ejerciciosExtra?.[diaId] ?? []), newEj] } }
+        await updatePerfilEntrenamiento(userId, mergedPerfil)
+        setPerfil(mergedPerfil)
         onToast('Ejercicio añadido ✓', 'success')
-      } catch { onToast('Error al añadir ejercicio', 'error') }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error('[KFitPro] addEjercicio error:', msg)
+        onToast('Error al añadir: ' + msg, 'error')
+      }
     } else {
       setPerfil(newPerfil)
     }
@@ -325,19 +331,24 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     setEditingEj(null)
     if (!demo) {
       try {
+        const freshPerfil = await fetchPerfilEntrenamiento(userId)
         let newPerfil: PerfilEntrenamiento
         if (editingEj.isExtra && todayWorkout) {
           const diaId = todayWorkout.id
-          const prevExtra = perfil?.ejerciciosExtra?.[diaId] ?? []
+          const prevExtra = freshPerfil?.ejerciciosExtra?.[diaId] ?? []
           const updated = prevExtra.map(e => e.id === editingEj.id ? { ...e, nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } : e)
-          newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(perfil?.ejerciciosExtra ?? {}), [diaId]: updated } }
+          newPerfil = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(freshPerfil?.ejerciciosExtra ?? {}), [diaId]: updated } }
         } else {
-          newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: { ...(perfil?.ejercicioOverrides ?? {}), [editingEj.id]: { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } } }
+          newPerfil = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: { ...(freshPerfil?.ejercicioOverrides ?? {}), [editingEj.id]: { nombre: editingEj.nombre, series: editingEj.series, repsMin: editingEj.repsMin, repsMax: editingEj.repsMax } } }
         }
         await updatePerfilEntrenamiento(userId, newPerfil)
         setPerfil(newPerfil)
         onToast('Ejercicio actualizado ✓', 'success')
-      } catch { onToast('Error al guardar cambios', 'error') }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error('[KFitPro] saveEjEdit error:', msg)
+        onToast('Error al guardar: ' + msg, 'error')
+      }
     }
   }
 

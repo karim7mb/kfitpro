@@ -542,8 +542,9 @@ export async function fetchPerfilEntrenamiento(clienteId: string): Promise<Perfi
     .from('clientes')
     .select('perfil_entrenamiento')
     .eq('usuario_id', clienteId)
-    .single()
-  if (error || !data?.perfil_entrenamiento) return null
+    .maybeSingle()
+  if (error) { console.error('[KFitPro] fetchPerfilEntrenamiento error:', error.message, error.code); return null }
+  if (!data?.perfil_entrenamiento) return null
   return data.perfil_entrenamiento as PerfilEntrenamiento
 }
 
