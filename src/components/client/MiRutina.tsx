@@ -105,13 +105,12 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     ])
     setRutina(r)
     setPerfil(p)
-    if (p?.ejercicioOverrides && r) {
-      const allEjs = (r.semanas?.flatMap(s => s.dias?.flatMap(d => d.ejercicios) ?? []) ?? r.dias?.flatMap(d => d.ejercicios) ?? [])
-      const ejMap = new Map(allEjs.map(e => [e.id, e]))
+    if (p?.ejercicioOverrides) {
       const mapped: Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }> = {}
       for (const [id, ov] of Object.entries(p.ejercicioOverrides)) {
-        const orig = ejMap.get(id)
-        if (orig) mapped[id] = { nombre: ov.nombre ?? orig.nombre, series: ov.series ?? orig.series, repsMin: ov.repsMin ?? orig.repsMin, repsMax: ov.repsMax ?? orig.repsMax }
+        if (ov.nombre != null && ov.series != null && ov.repsMin != null && ov.repsMax != null) {
+          mapped[id] = { nombre: ov.nombre, series: ov.series, repsMin: ov.repsMin, repsMax: ov.repsMax }
+        }
       }
       if (Object.keys(mapped).length > 0) setEjOverrides(mapped)
     }
@@ -268,8 +267,16 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     setSelectedDiaIdx(idx)
     setSeriesDone({})
     setSessionDone(false)
-    setEjOverrides({})
     setLastSesionDate(null)
+    // Re-apply saved overrides from perfil instead of clearing them
+    const savedOv = perfil?.ejercicioOverrides ?? {}
+    const restored: Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }> = {}
+    for (const [id, ov] of Object.entries(savedOv)) {
+      if (ov.nombre != null && ov.series != null && ov.repsMin != null && ov.repsMax != null) {
+        restored[id] = { nombre: ov.nombre, series: ov.series, repsMin: ov.repsMin, repsMax: ov.repsMax }
+      }
+    }
+    setEjOverrides(restored)
     const dia = dias[idx]
     if (!dia) { setPesos({}); setReps({}); return }
     const initPesos: Record<string, string> = {}
