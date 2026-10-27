@@ -370,7 +370,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
         await Promise.all([
           upsertSesionLog({
             cliente_id: userId, rutina_id: rutina.id, semana_num: semanaActual,
-            dia_id: todayWorkout.id, fecha: sessionDate, completada: allDone,
+            dia_id: todayWorkout.id, fecha: sessionDate, completada: true,
             sensacion, notas: note || undefined, series_completadas: seriesMap,
           }),
           upsertProgresoDiario({
