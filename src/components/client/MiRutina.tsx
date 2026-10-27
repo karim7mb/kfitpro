@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, CheckCircle2, Pencil, X, Check, Droplets, Moon, Zap, Calendar } from 'lucide-react'
 import { demoRutina } from '../../data/demo'
 import {
-  fetchRutina4Semanas, upsertSesionLog, fetchLastSesionForDia,
+  fetchRutina4Semanas, upsertSesionLog, fetchLastSesionForDia, fetchSesionForDate,
   upsertProgresoDiario, fetchProgresoHoy,
   fetchPerfilEntrenamiento, updatePerfilEntrenamiento,
   type Rutina4Semanas, type DiaRutina, type ProgresoDiario, type PerfilEntrenamiento,
@@ -72,9 +72,29 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const [note, setNote] = useState('')
   const [sessionDate, setSessionDate] = useState(date ?? todayDateStr())
 
-  const handleDateChange = (d: string) => {
+  const handleDateChange = async (d: string) => {
     setSessionDate(d)
     onDateChange?.(d)
+    if (!demo && todayWorkout) {
+      const dia = todayWorkout
+      const initPesos: Record<string, string> = {}
+      const initReps: Record<string, string> = {}
+      dia.ejercicios.forEach(ej => {
+        for (let i = 0; i < (ejOverrides[ej.id]?.series ?? ej.series); i++) {
+          const k = serieKey(ej.id, i)
+          if (ej.peso > 0) initPesos[k] = String(ej.peso)
+          if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
+        }
+      })
+      const [dateSession, last, local] = await Promise.all([
+        d === todayDateStr() ? Promise.resolve(null) : fetchSesionForDate(userId, dia.id, d),
+        fetchLastSesionForDia(userId, dia.id),
+        Promise.resolve(loadLocal(userId, dia.id)),
+      ])
+      setSeriesDone({})
+      setSessionDone(false)
+      applySessionState(initPesos, initReps, dateSession ?? last, local, d)
+    }
   }
   const [sessionDone, setSessionDone] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -154,8 +174,9 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     initReps: Record<string, string>,
     last: import('../../lib/supabase').SesionLog | null,
     local: { seriesDone: Record<string, boolean>; pesos: Record<string, string>; reps: Record<string, string> } | null,
+    targetDate = todayDateStr(),
   ) => {
-    const isToday = last?.fecha === todayDateStr()
+    const isToday = last?.fecha === targetDate
     if (isToday && last) {
       // BD de hoy es autoritativa
       const dbP: Record<string, string> = {}
@@ -246,10 +267,10 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     try {
       await upsertSesionLog({
         cliente_id: userId, rutina_id: rutina.id, semana_num: semanaActual,
-        dia_id: todayWorkout.id, fecha: todayDateStr(), completada: false,
+        dia_id: todayWorkout.id, fecha: sessionDate, completada: false,
         series_completadas: seriesMap,
       })
-      setLastSesionDate(todayDateStr())
+      setLastSesionDate(sessionDate)
       onToast('Serie guardada ✓', 'success')
     } catch (e) {
       console.error('Auto-save failed', e)
@@ -289,11 +310,12 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
         if (ej.repsMin > 0) initReps[k] = String(ej.repsMin)
       }
     })
-    const [last, local] = await Promise.all([
+    const [last, local, dateSession] = await Promise.all([
       demo ? Promise.resolve(null) : fetchLastSesionForDia(userId, dia.id),
       Promise.resolve(loadLocal(userId, dia.id)),
+      (demo || sessionDate === todayDateStr()) ? Promise.resolve(null) : fetchSesionForDate(userId, dia.id, sessionDate),
     ])
-    applySessionState(initPesos, initReps, last, local)
+    applySessionState(initPesos, initReps, dateSession ?? last, local, sessionDate)
   }
 
   const addEjercicio = async () => {
