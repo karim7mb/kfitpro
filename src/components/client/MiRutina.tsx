@@ -276,7 +276,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
       console.error('Auto-save failed', e)
       onToast('Error al guardar serie', 'error')
     }
-  }, [demo, rutina, todayWorkout, ejOverrides, userId, semanaActual, onToast])
+  }, [demo, rutina, todayWorkout, ejOverrides, userId, semanaActual, sessionDate, onToast])
 
   const toggleSerie = (key: string) => {
     const next = { ...seriesDone, [key]: !seriesDone[key] }

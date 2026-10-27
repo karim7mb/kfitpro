@@ -67,6 +67,12 @@ function buildCalendar(
 
   const cycleStart = calcCycleStart(fechaInicio)
   const sesionMap = new Map(sesiones.map(s => [s.fecha + '_' + s.dia_id, s]))
+  // Fallback: match by date alone (handles dia_id mismatch when user logs a workout on a different tab)
+  const sesionByDate = new Map<string, SesionLog>()
+  for (const s of sesiones) {
+    const existing = sesionByDate.get(s.fecha)
+    if (!existing || s.completada) sesionByDate.set(s.fecha, s)
+  }
   const today = todayStr()
 
   // Show: prev cycle (historial) + current cycle + next cycle (mes siguiente)
@@ -115,7 +121,7 @@ function buildCalendar(
       const sesionKey = dia ? date + '_' + dia.id : ''
       row.push({
         date, semanaNum, dia,
-        sesion: sesionKey ? sesionMap.get(sesionKey) : undefined,
+        sesion: sesionKey ? (sesionMap.get(sesionKey) ?? sesionByDate.get(date)) : undefined,
         isToday: date === today,
         isPast: date < today,
         isOverride,
