@@ -159,8 +159,10 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
   }
 
   const calendar = buildCalendar(rutina, sesiones, diasSemana, sesionOverrides)
-  const totalSessions = calendar.flat().filter(d => d.dia !== null).length
-  const completedSessions = calendar.flat().filter(d => d.sesion?.completada).length
+  const allDays = calendar.flat()
+  const totalSessions = allDays.filter(d => d.dia !== null).length
+  const completedSessions = allDays.filter(d => d.sesion?.completada).length
+  const currentWeekNum = allDays.find(d => d.isToday)?.semanaNum ?? calcCurrentWeek(rutina)
 
   return (
     <div className="space-y-4 pb-6">
@@ -168,7 +170,7 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Sesiones" value={`${completedSessions}/${totalSessions}`} color="#F5611A" />
         <StatCard label="Adherencia" value={`${totalSessions > 0 ? Math.round((completedSessions / Math.max(1, calendar.flat().filter(d => d.dia && d.isPast).length)) * 100) : 0}%`} color="#10B981" />
-        <StatCard label="Semana" value={`${calcCurrentWeek(rutina)}/4`} color="#8B5CF6" />
+        <StatCard label="Semana" value={`${currentWeekNum}/4`} color="#8B5CF6" />
       </div>
 
       {/* Calendar grid */}

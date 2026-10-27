@@ -396,7 +396,7 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
   const completedSessions = allDaysList.filter(d => d.sesion?.completada).length
   const pastTrainingDays = allDaysList.filter(d => d.dia && d.isPast).length
   const adherencia = pastTrainingDays > 0 ? Math.round((completedSessions / pastTrainingDays) * 100) : 0
-  const semanaActual = calcCurrentWeek(rutina)
+  const semanaActual = allDaysList.find(d => d.isToday)?.semanaNum ?? calcCurrentWeek(rutina)
 
   // Sessions list for the selected day's week (for swap modal)
   const selectedWeekIdx = (selected?.semanaNum ?? 1) - 1
