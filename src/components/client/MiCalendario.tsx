@@ -62,13 +62,29 @@ function buildCalendar(
   diasSemana: number[],
   sesionOverrides: Record<string, string>,
 ): CalDay[][] {
-  const cycleStart = rutina.fecha_inicio ? calcCycleStart(rutina.fecha_inicio) : todayStr()
+  const fechaInicio = rutina.fecha_inicio
+  if (!fechaInicio) return []
+
+  const cycleStart = calcCycleStart(fechaInicio)
   const sesionMap = new Map(sesiones.map(s => [s.fecha + '_' + s.dia_id, s]))
   const today = todayStr()
-  const weeks: CalDay[][] = []
 
-  for (let w = 0; w < 4; w++) {
-    const dias = rutina.semanas?.[w]?.dias ?? rutina.dias ?? []
+  // Show: prev cycle (historial) + current cycle + next cycle (mes siguiente)
+  const planWeekStart = getStartOfWeekMon(fechaInicio)
+  const prevCycleWeekStart = getStartOfWeekMon(addDays(cycleStart, -28))
+  const displayStart = prevCycleWeekStart < planWeekStart ? planWeekStart : prevCycleWeekStart
+  const displayEnd = addDays(cycleStart, 55) // current + next = 8 weeks ahead
+
+  const weeks: CalDay[][] = []
+  let weekStart = displayStart
+
+  while (weekStart <= displayEnd) {
+    const msFromPlanStart = new Date(weekStart + 'T12:00:00').getTime() - new Date(planWeekStart + 'T12:00:00').getTime()
+    const weeksSincePlanStart = Math.round(msFromPlanStart / (7 * 24 * 60 * 60 * 1000))
+    const planWeekIndex = ((weeksSincePlanStart % 4) + 4) % 4
+    const semanaNum = planWeekIndex + 1
+
+    const dias = rutina.semanas?.[planWeekIndex]?.dias ?? rutina.dias ?? []
     const total = dias.length
     const diasMap = new Map<number, DiaRutina>()
 
@@ -83,24 +99,22 @@ function buildCalendar(
       })
     }
 
-    const weekStartMon = getStartOfWeekMon(addDays(cycleStart, w * 7))
     const row: CalDay[] = []
-
     for (let d = 0; d < 7; d++) {
-      const date = addDays(weekStartMon, d)
+      const date = addDays(weekStart, d)
       let dia = diasMap.get(d) ?? null
       let isOverride = false
 
       const overrideDiaId = sesionOverrides[date]
       if (overrideDiaId) {
-        const weekDias = rutina.semanas?.[w]?.dias ?? rutina.dias ?? []
+        const weekDias = rutina.semanas?.[planWeekIndex]?.dias ?? rutina.dias ?? []
         const overrideDia = weekDias.find(dd => dd.id === overrideDiaId) ?? null
         if (overrideDia) { dia = overrideDia; isOverride = true }
       }
 
       const sesionKey = dia ? date + '_' + dia.id : ''
       row.push({
-        date, semanaNum: w + 1, dia,
+        date, semanaNum, dia,
         sesion: sesionKey ? sesionMap.get(sesionKey) : undefined,
         isToday: date === today,
         isPast: date < today,
@@ -108,6 +122,7 @@ function buildCalendar(
       })
     }
     weeks.push(row)
+    weekStart = addDays(weekStart, 7)
   }
   return weeks
 }
@@ -455,61 +470,70 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
         </div>
 
         {calendar.map((week, wi) => {
-          const semDesc = rutina.semanas?.[wi]?.descripcion ?? `Semana ${wi + 1}`
-          const isCurrentWeek = wi + 1 === semanaActual
+          const planWeekNum = week[0].semanaNum
+          const semDesc = rutina.semanas?.[planWeekNum - 1]?.descripcion ?? `Semana ${planWeekNum}`
+          const isCurrentWeek = week.some(d => d.isToday)
+          const isCycleStart = wi > 0 && planWeekNum === 1
           return (
-            <div key={wi} style={{ borderTop: wi > 0 ? '1px solid #1E2130' : undefined }}>
-              <div className="grid grid-cols-8">
-                <div
-                  className="flex items-center justify-center text-xs font-bold"
-                  style={{ background: '#161820', color: isCurrentWeek ? '#F5611A' : '#4B5563', minHeight: 52 }}
-                >
-                  S{wi + 1}
+            <div key={week[0].date}>
+              {isCycleStart && (
+                <div className="py-1 text-xs text-center" style={{ background: '#0A0B10', color: '#374151', borderTop: '2px solid #1E2130' }}>
+                  · · · nuevo ciclo · · ·
                 </div>
-                {week.map(day => {
-                  const isTraining = day.dia !== null
-                  const isDone = day.sesion?.completada
-                  const dayNum = new Date(day.date + 'T00:00:00').getDate()
-                  const isSelected = selected?.date === day.date
+              )}
+              <div style={{ borderTop: wi > 0 && !isCycleStart ? '1px solid #1E2130' : undefined }}>
+                <div className="grid grid-cols-8">
+                  <div
+                    className="flex items-center justify-center text-xs font-bold"
+                    style={{ background: '#161820', color: isCurrentWeek ? '#F5611A' : '#4B5563', minHeight: 52 }}
+                  >
+                    S{planWeekNum}
+                  </div>
+                  {week.map(day => {
+                    const isTraining = day.dia !== null
+                    const isDone = day.sesion?.completada
+                    const dayNum = new Date(day.date + 'T00:00:00').getDate()
+                    const isSelected = selected?.date === day.date
 
-                  let bg = 'transparent'
-                  if (isDone) bg = 'rgba(16,185,129,0.18)'
-                  else if (day.isToday && isTraining) bg = '#F5611A'
-                  else if (isTraining && !day.isPast) bg = 'rgba(245,97,26,0.55)'
-                  else if (day.isToday) bg = 'rgba(245,97,26,0.15)'
+                    let bg = 'transparent'
+                    if (isDone) bg = 'rgba(16,185,129,0.18)'
+                    else if (day.isToday && isTraining) bg = '#F5611A'
+                    else if (isTraining && !day.isPast) bg = 'rgba(245,97,26,0.55)'
+                    else if (day.isToday) bg = 'rgba(245,97,26,0.15)'
 
-                  return (
-                    <button
-                      key={day.date}
-                      onClick={() => setSelected(isSelected ? null : day)}
-                      className="flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all relative"
-                      style={{
-                        background: bg,
-                        minHeight: 52,
-                        border: `1px solid ${isSelected ? '#F5611A' : day.isToday ? 'rgba(245,97,26,0.4)' : 'transparent'}`,
-                      }}
-                    >
-                      <span className="text-xs font-semibold" style={{
-                        color: (day.isToday && isTraining) ? 'white'
-                          : (!isDone && isTraining && !day.isPast) ? 'white'
-                          : day.isPast ? '#4B5563' : '#D1D5DB',
-                      }}>
-                        {dayNum}
-                      </span>
-                      {isDone && <CheckCircle2 size={12} style={{ color: '#10B981' }} />}
-                      {!isDone && isTraining && day.isToday && <Clock size={11} style={{ color: 'white' }} />}
-                      {!isDone && isTraining && day.isPast && (
-                        <div className="w-2 h-2 rounded-full" style={{ background: '#EF4444AA' }} />
-                      )}
-                      {day.isOverride && (
-                        <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: '#8B5CF6' }} />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="px-3 py-1 text-xs truncate" style={{ background: '#0D0E13', color: '#4B5563' }}>
-                {semDesc}
+                    return (
+                      <button
+                        key={day.date}
+                        onClick={() => setSelected(isSelected ? null : day)}
+                        className="flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all relative"
+                        style={{
+                          background: bg,
+                          minHeight: 52,
+                          border: `1px solid ${isSelected ? '#F5611A' : day.isToday ? 'rgba(245,97,26,0.4)' : 'transparent'}`,
+                        }}
+                      >
+                        <span className="text-xs font-semibold" style={{
+                          color: (day.isToday && isTraining) ? 'white'
+                            : (!isDone && isTraining && !day.isPast) ? 'white'
+                            : day.isPast ? '#4B5563' : '#D1D5DB',
+                        }}>
+                          {dayNum}
+                        </span>
+                        {isDone && <CheckCircle2 size={12} style={{ color: '#10B981' }} />}
+                        {!isDone && isTraining && day.isToday && <Clock size={11} style={{ color: 'white' }} />}
+                        {!isDone && isTraining && day.isPast && (
+                          <div className="w-2 h-2 rounded-full" style={{ background: '#EF4444AA' }} />
+                        )}
+                        {day.isOverride && (
+                          <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: '#8B5CF6' }} />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="px-3 py-1 text-xs truncate" style={{ background: '#0D0E13', color: '#4B5563' }}>
+                  {semDesc}
+                </div>
               </div>
             </div>
           )

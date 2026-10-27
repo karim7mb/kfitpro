@@ -50,16 +50,32 @@ function buildCalendar(
   diasSemana: number[],
   sesionOverrides: Record<string, string>,
 ): CalDay[][] {
-  const cycleStart = rutina.fecha_inicio ? calcCycleStart(rutina.fecha_inicio) : today()
-  const weeks: CalDay[][] = []
+  const fechaInicio = rutina.fecha_inicio
+  if (!fechaInicio) return []
+
+  const cycleStart = calcCycleStart(fechaInicio)
   const sesionMap = new Map(sesiones.map(s => [s.fecha + '_' + s.dia_id, s]))
   const todayStr = today()
 
-  for (let w = 0; w < 4; w++) {
-    const semanaData = rutina.semanas?.[w]
+  // Show: prev cycle (historial) + current cycle + next cycle
+  const planWeekStart = getStartOfWeekMon(fechaInicio)
+  const prevCycleWeekStart = getStartOfWeekMon(addDays(cycleStart, -28))
+  const displayStart = prevCycleWeekStart < planWeekStart ? planWeekStart : prevCycleWeekStart
+  const displayEnd = addDays(cycleStart, 55)
+
+  const weeks: CalDay[][] = []
+  let weekStart = displayStart
+
+  while (weekStart <= displayEnd) {
+    const msFromPlanStart = new Date(weekStart + 'T12:00:00').getTime() - new Date(planWeekStart + 'T12:00:00').getTime()
+    const weeksSincePlanStart = Math.round(msFromPlanStart / (7 * 24 * 60 * 60 * 1000))
+    const planWeekIndex = ((weeksSincePlanStart % 4) + 4) % 4
+    const semanaNum = planWeekIndex + 1
+
+    const semanaData = rutina.semanas?.[planWeekIndex]
     const dias = semanaData?.dias ?? rutina.dias ?? []
-    const diasMap = new Map<number, DiaRutina>()
     const total = dias.length
+    const diasMap = new Map<number, DiaRutina>()
 
     if (diasSemana.length > 0) {
       const sorted = [...diasSemana].sort((a, b) => a - b)
@@ -72,11 +88,9 @@ function buildCalendar(
       })
     }
 
-    const weekStartMon = getStartOfWeekMon(addDays(cycleStart, w * 7))
     const row: CalDay[] = []
-
     for (let d = 0; d < 7; d++) {
-      const date = addDays(weekStartMon, d)
+      const date = addDays(weekStart, d)
       let dia = diasMap.get(d) ?? null
       let isOverride = false
 
@@ -89,7 +103,7 @@ function buildCalendar(
 
       const sesionKey = dia ? date + '_' + dia.id : ''
       row.push({
-        date, semanaNum: w + 1, dia,
+        date, semanaNum, dia,
         sesion: sesionKey ? sesionMap.get(sesionKey) : undefined,
         isToday: date === todayStr,
         isPast: date < todayStr,
@@ -97,6 +111,7 @@ function buildCalendar(
       })
     }
     weeks.push(row)
+    weekStart = addDays(weekStart, 7)
   }
   return weeks
 }
@@ -168,24 +183,34 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
 
         {/* Rows */}
         {calendar.map((week, wi) => {
-          const semanaData = rutina.semanas?.[wi]
+          const planWeekNum = week[0].semanaNum
+          const semanaData = rutina.semanas?.[planWeekNum - 1]
+          const isCurrentWeek = week.some(d => d.isToday)
+          const isCycleStart = wi > 0 && planWeekNum === 1
           return (
-            <div key={wi} style={{ borderTop: wi > 0 ? '1px solid #2a2d3e' : undefined }}>
-              {/* Week label */}
-              <div className="grid grid-cols-8">
-                <div
-                  className="flex items-center justify-center py-1 text-xs font-bold"
-                  style={{ background: '#262940', color: wi === calcCurrentWeek(rutina) - 1 ? '#F5611A' : '#6b7280' }}
-                >
-                  S{wi + 1}
+            <div key={week[0].date}>
+              {isCycleStart && (
+                <div className="py-1 text-xs text-center text-gray-600" style={{ background: '#0f1020', borderTop: '2px solid #2a2d3e' }}>
+                  · · · nuevo ciclo · · ·
                 </div>
-                {week.map((day) => (
-                  <DayCell key={day.date} day={day} onClick={() => setSelected(selected?.date === day.date ? null : day)} isSelected={selected?.date === day.date} />
-                ))}
-              </div>
-              {/* Week description */}
-              <div className="px-3 py-1.5 text-xs text-gray-500 truncate" style={{ background: '#141623' }}>
-                {semanaData?.descripcion ?? `Semana ${wi + 1}`}
+              )}
+              <div style={{ borderTop: wi > 0 && !isCycleStart ? '1px solid #2a2d3e' : undefined }}>
+                {/* Week label */}
+                <div className="grid grid-cols-8">
+                  <div
+                    className="flex items-center justify-center py-1 text-xs font-bold"
+                    style={{ background: '#262940', color: isCurrentWeek ? '#F5611A' : '#6b7280' }}
+                  >
+                    S{planWeekNum}
+                  </div>
+                  {week.map((day) => (
+                    <DayCell key={day.date} day={day} onClick={() => setSelected(selected?.date === day.date ? null : day)} isSelected={selected?.date === day.date} />
+                  ))}
+                </div>
+                {/* Week description */}
+                <div className="px-3 py-1.5 text-xs text-gray-500 truncate" style={{ background: '#141623' }}>
+                  {semanaData?.descripcion ?? `Semana ${planWeekNum}`}
+                </div>
               </div>
             </div>
           )
