@@ -38,7 +38,8 @@ function getDayOfWeekIndex(): number {
 function calcSemanaActual(fechaInicio?: string): number {
   if (!fechaInicio) return 1
   const ms = Date.now() - new Date(fechaInicio).getTime()
-  return Math.min(4, Math.max(1, Math.floor(ms / (1000 * 60 * 60 * 24 * 7)) + 1))
+  if (ms <= 0) return 1
+  return (Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) % 4) + 1
 }
 
 function getTodayDiaIdx(dias: DiaRutina[]): number {

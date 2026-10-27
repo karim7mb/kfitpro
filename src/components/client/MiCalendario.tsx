@@ -33,10 +33,17 @@ function getStartOfWeekMon(dateStr: string): string {
   return addDays(dateStr, -getDayOfWeekMon(dateStr))
 }
 
+function calcCycleStart(fechaInicio: string): string {
+  const elapsed = Date.now() - new Date(fechaInicio + 'T12:00:00').getTime()
+  if (elapsed <= 0) return fechaInicio
+  return addDays(fechaInicio, Math.floor(elapsed / (28 * 24 * 60 * 60 * 1000)) * 28)
+}
+
 function calcCurrentWeek(rutina: Rutina4Semanas): number {
   if (!rutina.fecha_inicio) return 1
-  const ms = Date.now() - new Date(rutina.fecha_inicio).getTime()
-  return Math.min(4, Math.max(1, Math.floor(ms / (1000 * 60 * 60 * 24 * 7)) + 1))
+  const ms = Date.now() - new Date(rutina.fecha_inicio + 'T12:00:00').getTime()
+  if (ms <= 0) return 1
+  return (Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) % 4) + 1
 }
 
 interface CalDay {
@@ -55,7 +62,7 @@ function buildCalendar(
   diasSemana: number[],
   sesionOverrides: Record<string, string>,
 ): CalDay[][] {
-  const fechaInicio = rutina.fecha_inicio ?? todayStr()
+  const cycleStart = rutina.fecha_inicio ? calcCycleStart(rutina.fecha_inicio) : todayStr()
   const sesionMap = new Map(sesiones.map(s => [s.fecha + '_' + s.dia_id, s]))
   const today = todayStr()
   const weeks: CalDay[][] = []
@@ -76,7 +83,7 @@ function buildCalendar(
       })
     }
 
-    const weekStartMon = getStartOfWeekMon(addDays(fechaInicio, w * 7))
+    const weekStartMon = getStartOfWeekMon(addDays(cycleStart, w * 7))
     const row: CalDay[] = []
 
     for (let d = 0; d < 7; d++) {
