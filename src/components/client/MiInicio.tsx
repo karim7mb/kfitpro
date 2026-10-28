@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ChevronRight, Dumbbell, Apple, Weight, MessageSquare, Calendar, CheckCircle2 } from 'lucide-react'
 import {
-  fetchRutina4Semanas, fetchPlanNutricional, fetchRegistrosPeso, fetchSesionesLog,
-  type Rutina4Semanas, type PlanNutricional, type PesoEntry, type DiaRutina, type SesionLog,
+  fetchRutina4Semanas, fetchPlanNutricional, fetchRegistrosPeso, fetchSesionesLog, fetchPerfilEntrenamiento,
+  type Rutina4Semanas, type PlanNutricional, type PesoEntry, type DiaRutina, type SesionLog, type PerfilEntrenamiento,
 } from '../../lib/supabase'
 import { demoPeso, demoNutricion } from '../../data/demo'
 
@@ -25,17 +25,50 @@ function getDayOfWeekIndex(): number {
   return (new Date().getDay() + 6) % 7 // 0=Mon, 6=Sun
 }
 
-function calcSemanaActual(fechaInicio?: string): number {
-  if (!fechaInicio) return 1
-  const ms = Date.now() - new Date(fechaInicio).getTime()
-  return Math.min(4, Math.max(1, Math.floor(ms / (1000 * 60 * 60 * 24 * 7)) + 1))
+function addDaysStr(base: string, n: number): string {
+  const d = new Date(base + 'T12:00:00')
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function getTodayDia(rutina: Rutina4Semanas): DiaRutina | null {
+function getStartOfWeekMon(dateStr: string): string {
+  const dow = (new Date(dateStr + 'T00:00:00').getDay() + 6) % 7
+  return addDaysStr(dateStr, -dow)
+}
+
+function todayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function calcSemanaActual(fechaInicio?: string): number {
+  if (!fechaInicio) return 1
+  const planWeekStart = getStartOfWeekMon(fechaInicio)
+  const todayWeekStart = getStartOfWeekMon(todayStr())
+  const ms = new Date(todayWeekStart + 'T12:00:00').getTime() - new Date(planWeekStart + 'T12:00:00').getTime()
+  if (ms <= 0) return 1
+  const weeks = Math.round(ms / (7 * 24 * 60 * 60 * 1000))
+  return ((weeks % 4) + 4) % 4 + 1
+}
+
+function getTodayDia(rutina: Rutina4Semanas, perfil: PerfilEntrenamiento | null): DiaRutina | null {
   const semana = calcSemanaActual(rutina.fecha_inicio)
   const dias = rutina.semanas?.[semana - 1]?.dias ?? rutina.dias
   if (!dias?.length) return null
   const dayIdx = getDayOfWeekIndex()
+  const diaWorkoutMap: Record<number, number> = perfil?.diaWorkoutMap ?? {}
+  const diasSemana: number[] = perfil?.diasSemana ?? []
+
+  if (Object.keys(diaWorkoutMap).length > 0) {
+    const slot = diaWorkoutMap[dayIdx]
+    return slot !== undefined ? (dias[Math.min(slot, dias.length - 1)] ?? null) : null
+  }
+  if (diasSemana.length > 0) {
+    const sorted = [...diasSemana].sort((a, b) => a - b)
+    const pos = sorted.indexOf(dayIdx)
+    return pos >= 0 ? (dias[Math.min(pos, dias.length - 1)] ?? null) : null
+  }
+  // Fallback generic spread
   const total = dias.length
   const maxSlot = total <= 5 ? 4 : 6
   const map: Record<number, number> = {}
@@ -49,6 +82,7 @@ function getTodayDia(rutina: Rutina4Semanas): DiaRutina | null {
 export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps) {
   const demo = isDemo(userId)
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
+  const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
   const [plan, setPlan] = useState<PlanNutricional | null>(null)
   const [pesos, setPesos] = useState<PesoEntry[]>([])
   const [todaySesion, setTodaySesion] = useState<SesionLog | null>(null)
@@ -64,14 +98,18 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
       setPesos(demoPeso)
       return
     }
-    fetchRutina4Semanas(userId).then(r => {
+    Promise.all([
+      fetchRutina4Semanas(userId),
+      fetchPerfilEntrenamiento(userId),
+    ]).then(([r, p]) => {
       setRutina(r)
+      setPerfil(p)
       if (r) {
         fetchSesionesLog(userId).then(logs => {
-          const todayStr = new Date().toISOString().split('T')[0]
-          const dia = getTodayDia(r)
+          const hoy = todayStr()
+          const dia = getTodayDia(r, p)
           if (dia) {
-            const s = logs.find(l => l.fecha === todayStr && l.dia_id === dia.id)
+            const s = logs.find(l => l.fecha === hoy && l.dia_id === dia.id)
             setTodaySesion(s ?? null)
           }
         })
@@ -81,7 +119,7 @@ export default function MiInicio({ userName, userId, onNavigate }: MiInicioProps
     fetchRegistrosPeso(userId).then(p => setPesos(p))
   }, [userId, demo])
 
-  const todayWorkout = rutina ? getTodayDia(rutina) : null
+  const todayWorkout = rutina ? getTodayDia(rutina, perfil) : null
   const totalEjercicios = todayWorkout?.ejercicios.length ?? 0
   const totalSeries = todayWorkout?.ejercicios.reduce((s, e) => s + e.series, 0) ?? 0
   const semanaActual = rutina ? calcSemanaActual(rutina.fecha_inicio) : 1
