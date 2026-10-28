@@ -56,9 +56,24 @@ function calcSemanaActual(fechaInicio?: string): number {
   return ((weeks % 4) + 4) % 4 + 1
 }
 
-function getTodayDiaIdx(dias: DiaRutina[]): number {
+function getTodayDiaIdx(dias: DiaRutina[], diasSemana: number[], diaWorkoutMap: Record<number, number>): number {
   if (!dias.length) return 0
   const dayIdx = getDayOfWeekIndex()
+
+  // Custom per-day assignment (from "Mis días" step 2)
+  if (Object.keys(diaWorkoutMap).length > 0) {
+    const slot = diaWorkoutMap[dayIdx]
+    return slot !== undefined ? Math.min(slot, dias.length - 1) : 0
+  }
+
+  // User-configured training days (sorted): same order as calendar
+  if (diasSemana.length > 0) {
+    const sorted = [...diasSemana].sort((a, b) => a - b)
+    const pos = sorted.indexOf(dayIdx)
+    return pos >= 0 ? Math.min(pos, dias.length - 1) : 0
+  }
+
+  // Fallback: generic spread across 7 days
   const total = dias.length
   const maxSlot = total <= 5 ? 4 : 6
   const slotMap: Record<number, number> = {}
@@ -151,7 +166,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     }
     if (r) {
       const dias = r.semanas?.[calcSemanaActual(r.fecha_inicio) - 1]?.dias ?? r.dias ?? []
-      const idx = getTodayDiaIdx(dias)
+      const idx = getTodayDiaIdx(dias, p?.diasSemana ?? [], p?.diaWorkoutMap ?? {})
       setSelectedDiaIdx(idx)
       const dia = dias[idx]
       if (dia) {
@@ -258,7 +273,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     ? (rutina.semanas?.[semanaActual - 1]?.dias ?? rutina.dias ?? [])
     : []
 
-  const todayDiaIdx = getTodayDiaIdx(dias)
+  const todayDiaIdx = getTodayDiaIdx(dias, perfil?.diasSemana ?? [], perfil?.diaWorkoutMap ?? {})
   const todayWorkout: DiaRutina | null = dias[selectedDiaIdx] ?? null
 
   const extraEjsForDay = todayWorkout ? (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []) : []
