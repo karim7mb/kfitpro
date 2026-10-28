@@ -35,11 +35,25 @@ function getDayOfWeekIndex(): number {
   return (new Date().getDay() + 6) % 7
 }
 
+function addDays(base: string, n: number): string {
+  const d = new Date(base + 'T12:00:00')
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getStartOfWeekMon(dateStr: string): string {
+  const dow = (new Date(dateStr + 'T00:00:00').getDay() + 6) % 7
+  return addDays(dateStr, -dow)
+}
+
 function calcSemanaActual(fechaInicio?: string): number {
   if (!fechaInicio) return 1
-  const ms = Date.now() - new Date(fechaInicio).getTime()
+  const planWeekStart = getStartOfWeekMon(fechaInicio)
+  const todayWeekStart = getStartOfWeekMon(todayDateStr())
+  const ms = new Date(todayWeekStart + 'T12:00:00').getTime() - new Date(planWeekStart + 'T12:00:00').getTime()
   if (ms <= 0) return 1
-  return (Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) % 4) + 1
+  const weeks = Math.round(ms / (7 * 24 * 60 * 60 * 1000))
+  return ((weeks % 4) + 4) % 4 + 1
 }
 
 function getTodayDiaIdx(dias: DiaRutina[]): number {
