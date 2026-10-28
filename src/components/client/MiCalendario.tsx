@@ -61,6 +61,7 @@ function buildCalendar(
   sesiones: SesionLog[],
   diasSemana: number[],
   sesionOverrides: Record<string, string>,
+  diaWorkoutMap?: Record<number, number>,
 ): CalDay[][] {
   const fechaInicio = rutina.fecha_inicio
   if (!fechaInicio) return []
@@ -94,7 +95,12 @@ function buildCalendar(
     const total = dias.length
     const diasMap = new Map<number, DiaRutina>()
 
-    if (diasSemana.length > 0) {
+    if (diaWorkoutMap && Object.keys(diaWorkoutMap).length > 0) {
+      for (const [dayStr, slotIdx] of Object.entries(diaWorkoutMap)) {
+        const day = Number(dayStr)
+        if (dias[slotIdx] !== undefined) diasMap.set(day, dias[slotIdx])
+      }
+    } else if (diasSemana.length > 0) {
       const sorted = [...diasSemana].sort((a, b) => a - b)
       dias.forEach((dia, i) => { if (i < sorted.length) diasMap.set(sorted[i], dia) })
     } else {
@@ -138,67 +144,142 @@ function buildCalendar(
 function DayPickerModal({
   numSesiones,
   selected,
+  workoutMap,
+  workoutTitles,
   saving,
   onConfirm,
   onClose,
 }: {
   numSesiones: number
   selected: number[]
+  workoutMap: Record<number, number>
+  workoutTitles: string[]
   saving: boolean
-  onConfirm: (dias: number[]) => void
+  onConfirm: (dias: number[], map: Record<number, number>) => void
   onClose: () => void
 }) {
-  const [local, setLocal] = useState<number[]>(selected)
+  const [step, setStep] = useState<1 | 2>(1)
+  const [localDias, setLocalDias] = useState<number[]>(selected)
+  const [localMap, setLocalMap] = useState<Record<number, number>>(() => {
+    // Initialise from existing map, defaulting unset days to sequential order
+    const init: Record<number, number> = { ...workoutMap }
+    const sorted = [...selected].sort((a, b) => a - b)
+    sorted.forEach((day, i) => {
+      if (init[day] === undefined) init[day] = i % numSesiones
+    })
+    return init
+  })
 
-  const toggle = (d: number) =>
-    setLocal(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort((a, b) => a - b))
+  const toggle = (d: number) => {
+    setLocalDias(prev => {
+      const next = prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort((a, b) => a - b)
+      // Keep map in sync: assign default slot for new day
+      if (!prev.includes(d)) {
+        setLocalMap(m => ({ ...m, [d]: next.indexOf(d) % numSesiones }))
+      }
+      return next
+    })
+  }
 
-  const tooMany = local.length > numSesiones
-  const tooFew = local.length > 0 && local.length < numSesiones
+  const goToStep2 = () => {
+    // Rebuild map so every selected day has a slot assigned
+    const sorted = [...localDias].sort((a, b) => a - b)
+    const newMap: Record<number, number> = {}
+    sorted.forEach((day, i) => {
+      newMap[day] = localMap[day] !== undefined ? localMap[day] : i % numSesiones
+    })
+    setLocalMap(newMap)
+    setStep(2)
+  }
+
+  const tooMany = localDias.length > numSesiones
+  const ready = localDias.length === numSesiones || (localDias.length > 0 && tooMany)
+
+  const sortedDias = [...localDias].sort((a, b) => a - b)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={onClose}>
       <div className="w-full rounded-t-2xl pb-8 pt-5 px-5 max-w-md" style={{ background: '#161820', border: '1px solid #1E2130' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-bold text-white">Mis días de entreno</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg cursor-pointer" style={{ background: '#1E2130', color: '#9CA3AF' }}>
-            <X size={16} />
+          <h3 className="font-bold text-white">{step === 1 ? 'Mis días de entreno' : 'Asignar entrenamientos'}</h3>
+          <button onClick={step === 2 ? () => setStep(1) : onClose} className="p-1.5 rounded-lg cursor-pointer" style={{ background: '#1E2130', color: '#9CA3AF' }}>
+            {step === 2 ? <span className="text-xs px-1">← Volver</span> : <X size={16} />}
           </button>
         </div>
-        <p className="text-xs mb-5" style={{ color: '#6B7280' }}>
-          Tu rutina tiene <span style={{ color: '#F5611A', fontWeight: 600 }}>{numSesiones} sesiones</span>/semana — selecciona {numSesiones} días
-        </p>
-        <div className="grid grid-cols-7 gap-1.5 mb-4">
-          {DAYS_ES.map((day, i) => (
+
+        {step === 1 ? (
+          <>
+            <p className="text-xs mb-5" style={{ color: '#6B7280' }}>
+              Tu rutina tiene <span style={{ color: '#F5611A', fontWeight: 600 }}>{numSesiones} sesiones</span>/semana — selecciona {numSesiones} días
+            </p>
+            <div className="grid grid-cols-7 gap-1.5 mb-4">
+              {DAYS_ES.map((day, i) => (
+                <button
+                  key={i}
+                  onClick={() => toggle(i)}
+                  className="py-3 rounded-xl text-sm font-bold cursor-pointer transition-all"
+                  style={{
+                    background: localDias.includes(i) ? 'rgba(245,97,26,0.2)' : '#1E2130',
+                    color: localDias.includes(i) ? '#F5611A' : '#6B7280',
+                    border: `1px solid ${localDias.includes(i) ? '#F5611A' : '#2a2d3e'}`,
+                  }}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+            {tooMany && (
+              <p className="text-xs text-center mb-3" style={{ color: '#F59E0B' }}>
+                {localDias.length} seleccionados — tienes {numSesiones} entrenamientos/semana
+              </p>
+            )}
             <button
-              key={i}
-              onClick={() => toggle(i)}
-              className="py-3 rounded-xl text-sm font-bold cursor-pointer transition-all"
-              style={{
-                background: local.includes(i) ? 'rgba(245,97,26,0.2)' : '#1E2130',
-                color: local.includes(i) ? '#F5611A' : '#6B7280',
-                border: `1px solid ${local.includes(i) ? '#F5611A' : '#2a2d3e'}`,
-              }}
+              onClick={() => ready && goToStep2()}
+              disabled={!ready}
+              className="w-full py-3 rounded-xl text-sm font-bold cursor-pointer"
+              style={{ background: ready ? '#F5611A' : '#374151', color: 'white' }}
             >
-              {day}
+              Siguiente — asignar entrenamientos →
             </button>
-          ))}
-        </div>
-        {(tooMany || tooFew) && (
-          <p className="text-xs text-center mb-3" style={{ color: tooMany ? '#F59E0B' : '#6B7280' }}>
-            {tooMany
-              ? `${local.length} seleccionados — solo se usarán los primeros ${numSesiones}`
-              : `Selecciona ${numSesiones - local.length} día${numSesiones - local.length !== 1 ? 's' : ''} más`}
-          </p>
+          </>
+        ) : (
+          <>
+            <p className="text-xs mb-4" style={{ color: '#6B7280' }}>
+              Elige qué entreno quieres hacer cada día
+            </p>
+            <div className="space-y-2 mb-5">
+              {sortedDias.map(day => (
+                <div key={day} className="flex items-center justify-between gap-3 rounded-xl px-4 py-3" style={{ background: '#1E2130' }}>
+                  <span className="text-sm font-semibold text-white w-10">{DAYS_LONG[day]}</span>
+                  <div className="flex gap-1.5 flex-wrap flex-1 justify-end">
+                    {workoutTitles.map((title, slotIdx) => (
+                      <button
+                        key={slotIdx}
+                        onClick={() => setLocalMap(m => ({ ...m, [day]: slotIdx }))}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all"
+                        style={{
+                          background: localMap[day] === slotIdx ? '#F5611A' : '#262940',
+                          color: localMap[day] === slotIdx ? 'white' : '#9CA3AF',
+                          border: `1px solid ${localMap[day] === slotIdx ? '#F5611A' : '#2a2d3e'}`,
+                        }}
+                      >
+                        {title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => !saving && onConfirm(localDias, localMap)}
+              disabled={saving}
+              className="w-full py-3 rounded-xl text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
+              style={{ background: '#F5611A', color: 'white', opacity: saving ? 0.7 : 1 }}
+            >
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Guardando...</> : 'Guardar horario'}
+            </button>
+          </>
         )}
-        <button
-          onClick={() => local.length > 0 && !saving && onConfirm(local)}
-          disabled={local.length === 0 || saving}
-          className="w-full py-3 rounded-xl text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
-          style={{ background: local.length > 0 ? '#F5611A' : '#374151', color: 'white', opacity: saving ? 0.7 : 1 }}
-        >
-          {saving ? <><Loader2 size={14} className="animate-spin" /> Guardando...</> : 'Guardar horario'}
-        </button>
       </div>
     </div>
   )
@@ -306,12 +387,13 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
     prevHighlight.current = highlightDate
     const overrides = perfil?.sesionOverrides ?? {}
     const dias = perfil?.diasSemana ?? []
-    const allDays = buildCalendar(rutina, sesiones, dias, overrides).flat()
+    const allDays = buildCalendar(rutina, sesiones, dias, overrides, perfil?.diaWorkoutMap ?? {}).flat()
     const found = allDays.find(d => d.date === highlightDate)
     if (found) setSelected(found)
   }, [highlightDate, loading, rutina, sesiones, perfil])
 
   const diasSemana: number[] = perfil?.diasSemana ?? []
+  const diaWorkoutMap: Record<number, number> = perfil?.diaWorkoutMap ?? {}
   const sesionOverrides: Record<string, string> = perfil?.sesionOverrides ?? {}
 
   const getOrCreatePerfil = (): PerfilEntrenamiento =>
@@ -332,10 +414,14 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
     }
   }
 
-  const saveDiasSemana = async (newDias: number[]) => {
+  const saveDiasSemana = async (newDias: number[], newWorkoutMap: Record<number, number>) => {
     setSaving(true)
     try {
-      const updated: PerfilEntrenamiento = { ...getOrCreatePerfil(), diasSemana: newDias.sort((a, b) => a - b) }
+      const updated: PerfilEntrenamiento = {
+        ...getOrCreatePerfil(),
+        diasSemana: newDias.sort((a, b) => a - b),
+        diaWorkoutMap: newWorkoutMap,
+      }
       await updatePerfilEntrenamiento(userId, updated)
       setPerfil(updated)
       setShowDayPicker(false)
@@ -396,7 +482,7 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
   }
 
   const numSesiones = rutina.dias?.length ?? 0
-  const calendar = buildCalendar(rutina, sesiones, diasSemana, sesionOverrides)
+  const calendar = buildCalendar(rutina, sesiones, diasSemana, sesionOverrides, diaWorkoutMap)
   const allDaysList = calendar.flat()
   const totalSessions = allDaysList.filter(d => d.dia !== null).length
   const completedSessions = allDaysList.filter(d => d.sesion?.completada).length
@@ -419,6 +505,8 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
         <DayPickerModal
           numSesiones={numSesiones}
           selected={diasSemana}
+          workoutMap={diaWorkoutMap}
+          workoutTitles={(rutina.semanas?.[0]?.dias ?? rutina.dias ?? []).map(d => d.titulo)}
           saving={saving}
           onConfirm={saveDiasSemana}
           onClose={() => setShowDayPicker(false)}

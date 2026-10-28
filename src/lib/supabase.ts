@@ -514,6 +514,7 @@ export interface PerfilEntrenamiento {
   entrenadorPrevio: boolean
   lesiones: string[]
   diasSemana?: number[]                     // 0=Lun … 6=Dom, elegidos por el cliente
+  diaWorkoutMap?: Record<number, number>    // día (0-6) → índice de workout en la semana
   sesionOverrides?: Record<string, string>  // 'YYYY-MM-DD' → dia_id (cambios puntuales)
   ejercicioOverrides?: Record<string, { nombre?: string; series?: number; repsMin?: number; repsMax?: number }>
   ejerciciosExtra?: Record<string, Array<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number }>>
