@@ -682,7 +682,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
               const rawEjs = [
                 ...todayWorkout.ejercicios.map(e => ({ ...e, isExtra: false as const })),
                 ...extraEjs,
-              ]
+              ].filter(e => !ocultosDia.includes(e.id) && !eliminadosDia.includes(e.id))
               const orden = ejOrden[todayWorkout.id]
               const allEjs = orden
                 ? [...rawEjs].sort((a, b) => {
@@ -794,7 +794,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
             {/* Hidden exercises */}
             {ocultosDia.length > 0 && (() => {
               const todayEjsAll = [...todayWorkout.ejercicios, ...extraEjsForDay.map(e => ({ ...e, peso: 0, rpe: 0 }))]
-              const hidden = todayEjsAll.filter(e => ocultosDia.includes(e.id))
+              const hidden = todayEjsAll.filter(e => ocultosDia.includes(e.id) && !eliminadosDia.includes(e.id))
               if (!hidden.length) return null
               return (
                 <div className="rounded-2xl p-3" style={{ background: '#0D0E13', border: '1px solid #1E2130' }}>
