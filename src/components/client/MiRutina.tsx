@@ -151,6 +151,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const [newEjForm, setNewEjForm] = useState({ nombre: '', series: 3, repsMin: 8, repsMax: 12 })
   const [ejOrden, setEjOrden] = useState<Record<string, string[]>>({})
   const [ejOcultos, setEjOcultos] = useState<Record<string, string[]>>({})
+  const [ejEliminados, setEjEliminados] = useState<Record<string, string[]>>({})
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -180,6 +181,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     setPerfil(p)
     if (p?.ejercicioOrden) setEjOrden(p.ejercicioOrden)
     if (p?.ejerciciosOcultos) setEjOcultos(p.ejerciciosOcultos)
+    if (p?.ejerciciosEliminados) setEjEliminados(p.ejerciciosEliminados)
     if (p?.ejercicioOverrides) {
       const mapped: Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }> = {}
       for (const [id, ov] of Object.entries(p.ejercicioOverrides)) {
@@ -303,10 +305,11 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
 
   const extraEjsForDay = todayWorkout ? (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []) : []
   const ocultosDia = todayWorkout ? (ejOcultos[todayWorkout.id] ?? []) : []
+  const eliminadosDia = todayWorkout ? (ejEliminados[todayWorkout.id] ?? []) : []
   const allEjsForDay = (() => {
     if (!todayWorkout) return []
     const raw = [...todayWorkout.ejercicios, ...extraEjsForDay.map(e => ({ ...e, peso: 0, rpe: 0 }))]
-      .filter(e => !ocultosDia.includes(e.id))
+      .filter(e => !ocultosDia.includes(e.id) && !eliminadosDia.includes(e.id))
     const orden = ejOrden[todayWorkout.id]
     if (!orden) return raw
     return [...raw].sort((a, b) => {
@@ -329,6 +332,23 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
         await updatePerfilEntrenamiento(userId, merged)
         setPerfil(merged)
         onToast('Ejercicio ocultado', 'info')
+      } catch { onToast('Error', 'error') }
+    }
+  }
+
+  const eliminarEjercicioBase = async (ejId: string) => {
+    if (!todayWorkout) return
+    const diaId = todayWorkout.id
+    const newEliminados = { ...ejEliminados, [diaId]: [...(ejEliminados[diaId] ?? []), ejId] }
+    setEjEliminados(newEliminados)
+    setEditingEj(null)
+    if (!demo) {
+      try {
+        const freshPerfil = await fetchPerfilEntrenamiento(userId)
+        const merged = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejerciciosEliminados: { ...(freshPerfil?.ejerciciosEliminados ?? {}), [diaId]: [...(freshPerfil?.ejerciciosEliminados?.[diaId] ?? []), ejId] } }
+        await updatePerfilEntrenamiento(userId, merged)
+        setPerfil(merged)
+        onToast('Ejercicio eliminado', 'success')
       } catch { onToast('Error', 'error') }
     }
   }
@@ -979,11 +999,10 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
                 </div>
               ))}
             </div>
-            <div className="flex gap-3">
-              <button onClick={async () => {
-                const eid = editingEj.id
-                const isExtra = editingEj.isExtra
-                if (isExtra) {
+            {editingEj.isExtra ? (
+              <div className="flex gap-3">
+                <button onClick={async () => {
+                  const eid = editingEj.id
                   setEjOverrides(prev => { const n = { ...prev }; delete n[eid]; return n })
                   setEditingEj(null)
                   if (!demo) {
@@ -997,17 +1016,30 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
                       onToast('Ejercicio eliminado', 'success')
                     } catch { onToast('Error', 'error') }
                   }
-                } else {
-                  ocultarEjercicio(eid)
-                }
-              }} className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>
-                {editingEj.isExtra ? 'Eliminar' : 'Ocultar'}
-              </button>
-              <button onClick={saveEjEdit}
-                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white cursor-pointer flex items-center justify-center gap-2" style={{ background: '#F5611A' }}>
-                <Check style={{ width: 14, height: 14 }} /> Guardar
-              </button>
-            </div>
+                }} className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>
+                  Eliminar
+                </button>
+                <button onClick={saveEjEdit}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold text-white cursor-pointer flex items-center justify-center gap-2" style={{ background: '#F5611A' }}>
+                  <Check style={{ width: 14, height: 14 }} /> Guardar
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => ocultarEjercicio(editingEj.id)}
+                  className="flex-1 py-3 rounded-2xl text-xs font-semibold cursor-pointer" style={{ background: '#1E2130', color: '#9CA3AF' }}>
+                  Ocultar
+                </button>
+                <button onClick={() => eliminarEjercicioBase(editingEj.id)}
+                  className="flex-1 py-3 rounded-2xl text-xs font-semibold cursor-pointer" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>
+                  Eliminar
+                </button>
+                <button onClick={saveEjEdit}
+                  className="flex-1 py-3 rounded-2xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1" style={{ background: '#F5611A' }}>
+                  <Check style={{ width: 13, height: 13 }} /> Guardar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
