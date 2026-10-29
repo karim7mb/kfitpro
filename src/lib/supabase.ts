@@ -518,6 +518,7 @@ export interface PerfilEntrenamiento {
   sesionOverrides?: Record<string, string>  // 'YYYY-MM-DD' → dia_id (cambios puntuales)
   ejercicioOverrides?: Record<string, { nombre?: string; series?: number; repsMin?: number; repsMax?: number }>
   ejerciciosExtra?: Record<string, Array<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number }>>
+  ejercicioOrden?: Record<string, string[]>
 }
 
 export async function fetchPerfilNutricional(clienteId: string): Promise<PerfilNutricional | null> {

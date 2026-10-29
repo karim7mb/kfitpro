@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, CheckCircle2, Pencil, X, Check, Droplets, Moon, Zap, Calendar } from 'lucide-react'
+import { Loader2, CheckCircle2, Pencil, X, Check, Droplets, Moon, Zap, Calendar, GripVertical } from 'lucide-react'
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { demoRutina } from '../../data/demo'
 import {
   fetchRutina4Semanas, upsertSesionLog, fetchLastSesionForDia, fetchSesionForDate,
@@ -88,6 +92,18 @@ function todayDateStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function SortableEjWrapper({ id, children }: { id: string; children: (dragHandleProps: React.HTMLAttributes<HTMLButtonElement>) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, position: 'relative', zIndex: isDragging ? 10 : undefined }}
+    >
+      {children({ ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>)}
+    </div>
+  )
+}
+
 export default function MiRutina({ userName, userId, onToast, date, onDateChange }: MiRutinaProps) {
   const demo = isDemo(userId)
   const [rutina, setRutina] = useState<Rutina4Semanas | null>(null)
@@ -133,6 +149,12 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
   const [addingEj, setAddingEj] = useState(false)
   const [newEjForm, setNewEjForm] = useState({ nombre: '', series: 3, repsMin: 8, repsMax: 12 })
+  const [ejOrden, setEjOrden] = useState<Record<string, string[]>>({})
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  )
   const [progreso, setProgreso] = useState<ProgresoDiario | null>(null)
   const [hidratacion, setHidratacion] = useState(0)
   const [litrosInput, setLitrosInput] = useState<number | ''>('')
@@ -155,6 +177,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     ])
     setRutina(r)
     setPerfil(p)
+    if (p?.ejercicioOrden) setEjOrden(p.ejercicioOrden)
     if (p?.ejercicioOverrides) {
       const mapped: Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }> = {}
       for (const [id, ov] of Object.entries(p.ejercicioOverrides)) {
@@ -277,8 +300,39 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const todayWorkout: DiaRutina | null = dias[selectedDiaIdx] ?? null
 
   const extraEjsForDay = todayWorkout ? (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []) : []
-  const allEjsForDay = todayWorkout ? [...todayWorkout.ejercicios, ...extraEjsForDay.map(e => ({ ...e, peso: 0, rpe: 0 }))] : []
+  const allEjsForDay = (() => {
+    if (!todayWorkout) return []
+    const raw = [...todayWorkout.ejercicios, ...extraEjsForDay.map(e => ({ ...e, peso: 0, rpe: 0 }))]
+    const orden = ejOrden[todayWorkout.id]
+    if (!orden) return raw
+    return [...raw].sort((a, b) => {
+      const ai = orden.indexOf(a.id); const bi = orden.indexOf(b.id)
+      return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi)
+    })
+  })()
   const totalSeries = allEjsForDay.reduce((acc, e) => acc + (ejOverrides[e.id]?.series ?? e.series), 0)
+
+  const handleEjDragEnd = async (event: DragEndEvent) => {
+    if (!todayWorkout) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const diaId = todayWorkout.id
+    const baseOrden = ejOrden[diaId] ?? allEjsForDay.map(e => e.id)
+    const oldIdx = baseOrden.indexOf(String(active.id))
+    const newIdx = baseOrden.indexOf(String(over.id))
+    if (oldIdx === -1 || newIdx === -1) return
+    const newOrden = arrayMove(baseOrden, oldIdx, newIdx)
+    const newEjOrden = { ...ejOrden, [diaId]: newOrden }
+    setEjOrden(newEjOrden)
+    if (!demo) {
+      try {
+        const freshPerfil = await fetchPerfilEntrenamiento(userId)
+        const merged = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejercicioOrden: { ...(freshPerfil?.ejercicioOrden ?? {}), [diaId]: newOrden } }
+        await updatePerfilEntrenamiento(userId, merged)
+        setPerfil(merged)
+      } catch { onToast('Error al guardar orden', 'error') }
+    }
+  }
   const doneCount = Object.values(seriesDone).filter(Boolean).length
   const allDone = totalSeries > 0 && doneCount >= totalSeries
   const todayAlreadySaved = lastSesionDate === todayDateStr()
@@ -568,38 +622,53 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
           <div className="mx-4 space-y-3 mb-4">
             {(() => {
               const extraEjs = (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []).map(e => ({ ...e, peso: 0, rpe: 0, isExtra: true as const }))
-              const allEjs = [
+              const rawEjs = [
                 ...todayWorkout.ejercicios.map(e => ({ ...e, isExtra: false as const })),
                 ...extraEjs,
               ]
-              return allEjs.map((ej, ejIdx) => {
-                const ov = ejOverrides[ej.id]
-                const nombre = ov?.nombre ?? ej.nombre
-                const series = ov?.series ?? ej.series
-                const repsMin = ov?.repsMin ?? ej.repsMin
-                const repsMax = ov?.repsMax ?? ej.repsMax
-                const ejDone = Array.from({ length: series }, (_, i) => seriesDone[serieKey(ej.id, i)] ?? false).every(Boolean)
-                return (
-                  <div key={ej.id} className="rounded-2xl overflow-hidden" style={{ background: '#161820', border: `1px solid ${ejDone ? 'rgba(16,185,129,0.3)' : ej.isExtra ? 'rgba(139,92,246,0.25)' : '#1E2130'}` }}>
-                    <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: '1px solid #1E2130' }}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ background: ejDone ? 'rgba(16,185,129,0.2)' : ej.isExtra ? 'rgba(139,92,246,0.15)' : 'rgba(245,97,26,0.15)', color: ejDone ? '#10B981' : ej.isExtra ? '#8B5CF6' : '#F5611A' }}>
-                        {ejDone ? '✓' : ejIdx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-white truncate">{nombre}{ov && <span className="ml-1.5 text-xs" style={{ color: '#F5611A' }}>✎</span>}{ej.isExtra && !ov && <span className="ml-1.5 text-xs" style={{ color: '#8B5CF6' }}>+</span>}</p>
-                        <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-                          {series} series · {repsMin}–{repsMax} reps{ej.peso > 0 ? ` · Ref: ${ej.peso} kg` : ''}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setEditingEj({ id: ej.id, nombre, series, repsMin, repsMax, isExtra: ej.isExtra })}
-                        className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
-                        style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7280' }}
-                      >
-                        <Pencil style={{ width: 13, height: 13 }} />
-                      </button>
-                    </div>
+              const orden = ejOrden[todayWorkout.id]
+              const allEjs = orden
+                ? [...rawEjs].sort((a, b) => {
+                    const ai = orden.indexOf(a.id); const bi = orden.indexOf(b.id)
+                    return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi)
+                  })
+                : rawEjs
+              return (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleEjDragEnd}>
+                  <SortableContext items={allEjs.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                    {allEjs.map((ej, ejIdx) => {
+                      const ov = ejOverrides[ej.id]
+                      const nombre = ov?.nombre ?? ej.nombre
+                      const series = ov?.series ?? ej.series
+                      const repsMin = ov?.repsMin ?? ej.repsMin
+                      const repsMax = ov?.repsMax ?? ej.repsMax
+                      const ejDone = Array.from({ length: series }, (_, i) => seriesDone[serieKey(ej.id, i)] ?? false).every(Boolean)
+                      return (
+                        <SortableEjWrapper key={ej.id} id={ej.id}>
+                          {(dragHandleProps) => (
+                          <div className="rounded-2xl" style={{ background: '#161820', border: `1px solid ${ejDone ? 'rgba(16,185,129,0.3)' : ej.isExtra ? 'rgba(139,92,246,0.25)' : '#1E2130'}` }}>
+                            <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid #1E2130' }}>
+                              <button {...dragHandleProps} className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded" style={{ color: '#4B5563' }}>
+                                <GripVertical style={{ width: 15, height: 15 }} />
+                              </button>
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                style={{ background: ejDone ? 'rgba(16,185,129,0.2)' : ej.isExtra ? 'rgba(139,92,246,0.15)' : 'rgba(245,97,26,0.15)', color: ejDone ? '#10B981' : ej.isExtra ? '#8B5CF6' : '#F5611A' }}>
+                                {ejDone ? '✓' : ejIdx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-white truncate">{nombre}{ov && <span className="ml-1.5 text-xs" style={{ color: '#F5611A' }}>✎</span>}{ej.isExtra && !ov && <span className="ml-1.5 text-xs" style={{ color: '#8B5CF6' }}>+</span>}</p>
+                                <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                                  {series} series · {repsMin}–{repsMax} reps{ej.peso > 0 ? ` · Ref: ${ej.peso} kg` : ''}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => setEditingEj({ id: ej.id, nombre, series, repsMin, repsMax, isExtra: ej.isExtra })}
+                                className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
+                                style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7280' }}
+                              >
+                                <Pencil style={{ width: 13, height: 13 }} />
+                              </button>
+                            </div>
                     <div className="p-3 space-y-2">
                       {Array.from({ length: series }, (_, i) => {
                         const k = serieKey(ej.id, i)
@@ -647,10 +716,14 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
                           </div>
                         )
                       })}
-                    </div>
-                  </div>
-                )
-              })
+                          </div>
+                          )}
+                        </SortableEjWrapper>
+                      )
+                    })}
+                  </SortableContext>
+                </DndContext>
+              )
             })()}
             {/* Add exercise button */}
             <button
