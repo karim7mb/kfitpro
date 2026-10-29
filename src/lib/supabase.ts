@@ -519,6 +519,7 @@ export interface PerfilEntrenamiento {
   ejercicioOverrides?: Record<string, { nombre?: string; series?: number; repsMin?: number; repsMax?: number }>
   ejerciciosExtra?: Record<string, Array<{ id: string; nombre: string; series: number; repsMin: number; repsMax: number }>>
   ejercicioOrden?: Record<string, string[]>
+  ejerciciosOcultos?: Record<string, string[]>
 }
 
 export async function fetchPerfilNutricional(clienteId: string): Promise<PerfilNutricional | null> {

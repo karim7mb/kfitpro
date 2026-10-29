@@ -150,6 +150,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const [addingEj, setAddingEj] = useState(false)
   const [newEjForm, setNewEjForm] = useState({ nombre: '', series: 3, repsMin: 8, repsMax: 12 })
   const [ejOrden, setEjOrden] = useState<Record<string, string[]>>({})
+  const [ejOcultos, setEjOcultos] = useState<Record<string, string[]>>({})
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -178,6 +179,7 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     setRutina(r)
     setPerfil(p)
     if (p?.ejercicioOrden) setEjOrden(p.ejercicioOrden)
+    if (p?.ejerciciosOcultos) setEjOcultos(p.ejerciciosOcultos)
     if (p?.ejercicioOverrides) {
       const mapped: Record<string, { nombre: string; series: number; repsMin: number; repsMax: number }> = {}
       for (const [id, ov] of Object.entries(p.ejercicioOverrides)) {
@@ -300,9 +302,11 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
   const todayWorkout: DiaRutina | null = dias[selectedDiaIdx] ?? null
 
   const extraEjsForDay = todayWorkout ? (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []) : []
+  const ocultosDia = todayWorkout ? (ejOcultos[todayWorkout.id] ?? []) : []
   const allEjsForDay = (() => {
     if (!todayWorkout) return []
     const raw = [...todayWorkout.ejercicios, ...extraEjsForDay.map(e => ({ ...e, peso: 0, rpe: 0 }))]
+      .filter(e => !ocultosDia.includes(e.id))
     const orden = ejOrden[todayWorkout.id]
     if (!orden) return raw
     return [...raw].sort((a, b) => {
@@ -311,6 +315,39 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     })
   })()
   const totalSeries = allEjsForDay.reduce((acc, e) => acc + (ejOverrides[e.id]?.series ?? e.series), 0)
+
+  const ocultarEjercicio = async (ejId: string) => {
+    if (!todayWorkout) return
+    const diaId = todayWorkout.id
+    const newOcultos = { ...ejOcultos, [diaId]: [...(ejOcultos[diaId] ?? []), ejId] }
+    setEjOcultos(newOcultos)
+    setEditingEj(null)
+    if (!demo) {
+      try {
+        const freshPerfil = await fetchPerfilEntrenamiento(userId)
+        const merged = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejerciciosOcultos: { ...(freshPerfil?.ejerciciosOcultos ?? {}), [diaId]: [...(freshPerfil?.ejerciciosOcultos?.[diaId] ?? []), ejId] } }
+        await updatePerfilEntrenamiento(userId, merged)
+        setPerfil(merged)
+        onToast('Ejercicio ocultado', 'info')
+      } catch { onToast('Error', 'error') }
+    }
+  }
+
+  const mostrarEjercicio = async (ejId: string) => {
+    if (!todayWorkout) return
+    const diaId = todayWorkout.id
+    const newOcultos = { ...ejOcultos, [diaId]: (ejOcultos[diaId] ?? []).filter(id => id !== ejId) }
+    setEjOcultos(newOcultos)
+    if (!demo) {
+      try {
+        const freshPerfil = await fetchPerfilEntrenamiento(userId)
+        const merged = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejerciciosOcultos: { ...(freshPerfil?.ejerciciosOcultos ?? {}), [diaId]: (freshPerfil?.ejerciciosOcultos?.[diaId] ?? []).filter((id: string) => id !== ejId) } }
+        await updatePerfilEntrenamiento(userId, merged)
+        setPerfil(merged)
+        onToast('Ejercicio restaurado', 'success')
+      } catch { onToast('Error', 'error') }
+    }
+  }
 
   const handleEjDragEnd = async (event: DragEndEvent) => {
     if (!todayWorkout) return
@@ -734,6 +771,31 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
             >
               <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Añadir ejercicio
             </button>
+            {/* Hidden exercises */}
+            {ocultosDia.length > 0 && (() => {
+              const todayEjsAll = [...todayWorkout.ejercicios, ...extraEjsForDay.map(e => ({ ...e, peso: 0, rpe: 0 }))]
+              const hidden = todayEjsAll.filter(e => ocultosDia.includes(e.id))
+              if (!hidden.length) return null
+              return (
+                <div className="rounded-2xl p-3" style={{ background: '#0D0E13', border: '1px solid #1E2130' }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: '#6B7280' }}>Ejercicios ocultos ({hidden.length})</p>
+                  <div className="space-y-1.5">
+                    {hidden.map(ej => (
+                      <div key={ej.id} className="flex items-center justify-between gap-3 px-2 py-1.5 rounded-lg" style={{ background: '#161820' }}>
+                        <span className="text-xs text-white truncate flex-1">{ej.nombre}</span>
+                        <button
+                          onClick={() => mostrarEjercicio(ej.id)}
+                          className="text-xs font-semibold flex-shrink-0 cursor-pointer"
+                          style={{ color: '#F5611A' }}
+                        >
+                          Mostrar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </>
       ) : (
@@ -921,27 +983,25 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
               <button onClick={async () => {
                 const eid = editingEj.id
                 const isExtra = editingEj.isExtra
-                setEjOverrides(prev => { const n = { ...prev }; delete n[eid]; return n })
-                setEditingEj(null)
-                if (!demo) {
-                  try {
-                    let newPerfil: PerfilEntrenamiento
-                    if (isExtra && todayWorkout) {
-                      const diaId = todayWorkout.id
-                      const filtered = (perfil?.ejerciciosExtra?.[diaId] ?? []).filter(e => e.id !== eid)
-                      newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(perfil?.ejerciciosExtra ?? {}), [diaId]: filtered } }
-                    } else {
-                      const newEjOv = { ...(perfil?.ejercicioOverrides ?? {}) }
-                      delete newEjOv[eid]
-                      newPerfil = { ...(perfil ?? {} as PerfilEntrenamiento), ejercicioOverrides: newEjOv }
-                    }
-                    await updatePerfilEntrenamiento(userId, newPerfil)
-                    setPerfil(newPerfil)
-                    onToast(isExtra ? 'Ejercicio eliminado' : 'Valores restablecidos', 'success')
-                  } catch { onToast('Error', 'error') }
+                if (isExtra) {
+                  setEjOverrides(prev => { const n = { ...prev }; delete n[eid]; return n })
+                  setEditingEj(null)
+                  if (!demo) {
+                    try {
+                      const freshPerfil = await fetchPerfilEntrenamiento(userId)
+                      const diaId = todayWorkout!.id
+                      const filtered = (freshPerfil?.ejerciciosExtra?.[diaId] ?? []).filter(e => e.id !== eid)
+                      const newPerfil = { ...(freshPerfil ?? {} as PerfilEntrenamiento), ejerciciosExtra: { ...(freshPerfil?.ejerciciosExtra ?? {}), [diaId]: filtered } }
+                      await updatePerfilEntrenamiento(userId, newPerfil)
+                      setPerfil(newPerfil)
+                      onToast('Ejercicio eliminado', 'success')
+                    } catch { onToast('Error', 'error') }
+                  }
+                } else {
+                  ocultarEjercicio(eid)
                 }
-              }} className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: editingEj.isExtra ? 'rgba(239,68,68,0.1)' : '#1E2130', color: editingEj.isExtra ? '#EF4444' : '#6B7280' }}>
-                {editingEj.isExtra ? 'Eliminar' : 'Restablecer'}
+              }} className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>
+                {editingEj.isExtra ? 'Eliminar' : 'Ocultar'}
               </button>
               <button onClick={saveEjEdit}
                 className="flex-1 py-3 rounded-2xl text-sm font-bold text-white cursor-pointer flex items-center justify-center gap-2" style={{ background: '#F5611A' }}>
