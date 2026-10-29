@@ -617,30 +617,30 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
                               </button>
                             </div>
                             <div className="flex gap-3">
-                              <div className="flex-1">
+                              <div className="flex-1 min-w-0">
                                 <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Peso (kg)</label>
-                                <div className="flex items-center rounded-lg overflow-hidden" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
-                                  <button disabled={done} onClick={() => { const v = Math.max(0, (Number(pesos[k]) || 0) - 2.5); setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="px-3 py-2 text-lg font-bold cursor-pointer select-none" style={{ color: '#F5611A' }}>−</button>
+                                <div className="flex items-center rounded-lg" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
+                                  <button disabled={done} onClick={() => { const v = Math.max(0, (Number(pesos[k]) || 0) - 2.5); setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>−</button>
                                   <input type="number" inputMode="decimal" placeholder="0" value={pesos[k] ?? ''}
                                     onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
                                     disabled={done}
-                                    className="flex-1 min-w-0 text-sm font-semibold text-white outline-none text-center bg-transparent"
+                                    className="flex-1 min-w-0 w-0 text-sm font-semibold text-white outline-none text-center bg-transparent py-2"
                                     style={{ appearance: 'none' }}
                                   />
-                                  <button disabled={done} onClick={() => { const v = (Number(pesos[k]) || 0) + 2.5; setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="px-3 py-2 text-lg font-bold cursor-pointer select-none" style={{ color: '#F5611A' }}>+</button>
+                                  <button disabled={done} onClick={() => { const v = (Number(pesos[k]) || 0) + 2.5; setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>+</button>
                                 </div>
                               </div>
-                              <div className="flex-1">
+                              <div className="flex-1 min-w-0">
                                 <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Reps</label>
-                                <div className="flex items-center rounded-lg overflow-hidden" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
-                                  <button disabled={done} onClick={() => { const v = Math.max(0, (Number(reps[k]) || 0) - 1); setReps(prev => ({ ...prev, [k]: String(v) })) }} className="px-3 py-2 text-lg font-bold cursor-pointer select-none" style={{ color: '#F5611A' }}>−</button>
+                                <div className="flex items-center rounded-lg" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
+                                  <button disabled={done} onClick={() => { const v = Math.max(0, (Number(reps[k]) || 0) - 1); setReps(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>−</button>
                                   <input type="number" inputMode="numeric" placeholder="0" value={reps[k] ?? ''}
                                     onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
                                     disabled={done}
-                                    className="flex-1 min-w-0 text-sm font-semibold text-white outline-none text-center bg-transparent"
+                                    className="flex-1 min-w-0 w-0 text-sm font-semibold text-white outline-none text-center bg-transparent py-2"
                                     style={{ appearance: 'none' }}
                                   />
-                                  <button disabled={done} onClick={() => { const v = (Number(reps[k]) || 0) + 1; setReps(prev => ({ ...prev, [k]: String(v) })) }} className="px-3 py-2 text-lg font-bold cursor-pointer select-none" style={{ color: '#F5611A' }}>+</button>
+                                  <button disabled={done} onClick={() => { const v = (Number(reps[k]) || 0) + 1; setReps(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>+</button>
                                 </div>
                               </div>
                             </div>
