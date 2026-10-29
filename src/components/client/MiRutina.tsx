@@ -646,77 +646,78 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
                       return (
                         <SortableEjWrapper key={ej.id} id={ej.id}>
                           {(dragHandleProps) => (
-                          <div className="rounded-2xl" style={{ background: '#161820', border: `1px solid ${ejDone ? 'rgba(16,185,129,0.3)' : ej.isExtra ? 'rgba(139,92,246,0.25)' : '#1E2130'}` }}>
-                            <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid #1E2130' }}>
-                              <button {...dragHandleProps} className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded" style={{ color: '#4B5563' }}>
-                                <GripVertical style={{ width: 15, height: 15 }} />
-                              </button>
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                                style={{ background: ejDone ? 'rgba(16,185,129,0.2)' : ej.isExtra ? 'rgba(139,92,246,0.15)' : 'rgba(245,97,26,0.15)', color: ejDone ? '#10B981' : ej.isExtra ? '#8B5CF6' : '#F5611A' }}>
-                                {ejDone ? '✓' : ejIdx + 1}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm text-white truncate">{nombre}{ov && <span className="ml-1.5 text-xs" style={{ color: '#F5611A' }}>✎</span>}{ej.isExtra && !ov && <span className="ml-1.5 text-xs" style={{ color: '#8B5CF6' }}>+</span>}</p>
-                                <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-                                  {series} series · {repsMin}–{repsMax} reps{ej.peso > 0 ? ` · Ref: ${ej.peso} kg` : ''}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => setEditingEj({ id: ej.id, nombre, series, repsMin, repsMax, isExtra: ej.isExtra })}
-                                className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
-                                style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7280' }}
-                              >
-                                <Pencil style={{ width: 13, height: 13 }} />
-                              </button>
-                            </div>
-                    <div className="p-3 space-y-2">
-                      {Array.from({ length: series }, (_, i) => {
-                        const k = serieKey(ej.id, i)
-                        const done = seriesDone[k] ?? false
-                        return (
-                          <div key={k} className="rounded-xl p-3" style={{ background: done ? 'rgba(16,185,129,0.07)' : '#0D0E13', border: `1px solid ${done ? 'rgba(16,185,129,0.25)' : '#1E2130'}` }}>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-bold" style={{ color: done ? '#10B981' : '#6B7280' }}>Serie {i + 1}</span>
-                              <button
-                                onClick={() => toggleSerie(k)}
-                                className="px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all"
-                                style={{ background: done ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: done ? '#10B981' : '#F5611A', border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : 'rgba(245,97,26,0.3)'}` }}
-                              >
-                                {done ? '✓ Guardado' : 'Guardar'}
-                              </button>
-                            </div>
-                            <div className="flex gap-3">
-                              <div className="flex-1 min-w-0">
-                                <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Peso (kg)</label>
-                                <div className="flex items-center rounded-lg" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
-                                  <button disabled={done} onClick={() => { const v = Math.max(0, (Number(pesos[k]) || 0) - 2.5); setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>−</button>
-                                  <input type="number" inputMode="decimal" placeholder="0" value={pesos[k] ?? ''}
-                                    onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
-                                    disabled={done}
-                                    className="flex-1 min-w-0 w-0 text-sm font-semibold text-white outline-none text-center bg-transparent py-2"
-                                    style={{ appearance: 'none' }}
-                                  />
-                                  <button disabled={done} onClick={() => { const v = (Number(pesos[k]) || 0) + 2.5; setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>+</button>
+                            <div className="rounded-2xl" style={{ background: '#161820', border: `1px solid ${ejDone ? 'rgba(16,185,129,0.3)' : ej.isExtra ? 'rgba(139,92,246,0.25)' : '#1E2130'}` }}>
+                              <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid #1E2130' }}>
+                                <button {...dragHandleProps} className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded" style={{ color: '#6B7280' }}>
+                                  <GripVertical style={{ width: 16, height: 16 }} />
+                                </button>
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                  style={{ background: ejDone ? 'rgba(16,185,129,0.2)' : ej.isExtra ? 'rgba(139,92,246,0.15)' : 'rgba(245,97,26,0.15)', color: ejDone ? '#10B981' : ej.isExtra ? '#8B5CF6' : '#F5611A' }}>
+                                  {ejDone ? '✓' : ejIdx + 1}
                                 </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Reps</label>
-                                <div className="flex items-center rounded-lg" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
-                                  <button disabled={done} onClick={() => { const v = Math.max(0, (Number(reps[k]) || 0) - 1); setReps(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>−</button>
-                                  <input type="number" inputMode="numeric" placeholder="0" value={reps[k] ?? ''}
-                                    onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
-                                    disabled={done}
-                                    className="flex-1 min-w-0 w-0 text-sm font-semibold text-white outline-none text-center bg-transparent py-2"
-                                    style={{ appearance: 'none' }}
-                                  />
-                                  <button disabled={done} onClick={() => { const v = (Number(reps[k]) || 0) + 1; setReps(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>+</button>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-sm text-white truncate">{nombre}{ov && <span className="ml-1.5 text-xs" style={{ color: '#F5611A' }}>✎</span>}{ej.isExtra && !ov && <span className="ml-1.5 text-xs" style={{ color: '#8B5CF6' }}>+</span>}</p>
+                                  <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                                    {series} series · {repsMin}–{repsMax} reps{ej.peso > 0 ? ` · Ref: ${ej.peso} kg` : ''}
+                                  </p>
                                 </div>
+                                <button
+                                  onClick={() => setEditingEj({ id: ej.id, nombre, series, repsMin, repsMax, isExtra: ej.isExtra })}
+                                  className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
+                                  style={{ background: 'rgba(255,255,255,0.05)', color: '#6B7280' }}
+                                >
+                                  <Pencil style={{ width: 13, height: 13 }} />
+                                </button>
+                              </div>
+                              <div className="p-3 space-y-2">
+                                {Array.from({ length: series }, (_, i) => {
+                                  const k = serieKey(ej.id, i)
+                                  const done = seriesDone[k] ?? false
+                                  return (
+                                    <div key={k} className="rounded-xl p-3" style={{ background: done ? 'rgba(16,185,129,0.07)' : '#0D0E13', border: `1px solid ${done ? 'rgba(16,185,129,0.25)' : '#1E2130'}` }}>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-bold" style={{ color: done ? '#10B981' : '#6B7280' }}>Serie {i + 1}</span>
+                                        <button
+                                          onClick={() => toggleSerie(k)}
+                                          className="px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all"
+                                          style={{ background: done ? 'rgba(16,185,129,0.2)' : 'rgba(245,97,26,0.15)', color: done ? '#10B981' : '#F5611A', border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : 'rgba(245,97,26,0.3)'}` }}
+                                        >
+                                          {done ? '✓ Guardado' : 'Guardar'}
+                                        </button>
+                                      </div>
+                                      <div className="flex gap-3">
+                                        <div className="flex-1 min-w-0">
+                                          <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Peso (kg)</label>
+                                          <div className="flex items-center rounded-lg" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
+                                            <button disabled={done} onClick={() => { const v = Math.max(0, (Number(pesos[k]) || 0) - 2.5); setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>−</button>
+                                            <input type="number" inputMode="decimal" placeholder="0" value={pesos[k] ?? ''}
+                                              onChange={e => setPesos(prev => ({ ...prev, [k]: e.target.value }))}
+                                              disabled={done}
+                                              className="flex-1 min-w-0 w-0 text-sm font-semibold text-white outline-none text-center bg-transparent py-2"
+                                              style={{ appearance: 'none' }}
+                                            />
+                                            <button disabled={done} onClick={() => { const v = (Number(pesos[k]) || 0) + 2.5; setPesos(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>+</button>
+                                          </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <label className="text-xs mb-1 block" style={{ color: '#4B5563' }}>Reps</label>
+                                          <div className="flex items-center rounded-lg" style={{ background: done ? 'rgba(255,255,255,0.03)' : '#161820', border: `1px solid ${done ? 'transparent' : '#2a2d3e'}`, opacity: done ? 0.5 : 1 }}>
+                                            <button disabled={done} onClick={() => { const v = Math.max(0, (Number(reps[k]) || 0) - 1); setReps(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>−</button>
+                                            <input type="number" inputMode="numeric" placeholder="0" value={reps[k] ?? ''}
+                                              onChange={e => setReps(prev => ({ ...prev, [k]: e.target.value }))}
+                                              disabled={done}
+                                              className="flex-1 min-w-0 w-0 text-sm font-semibold text-white outline-none text-center bg-transparent py-2"
+                                              style={{ appearance: 'none' }}
+                                            />
+                                            <button disabled={done} onClick={() => { const v = (Number(reps[k]) || 0) + 1; setReps(prev => ({ ...prev, [k]: String(v) })) }} className="flex-shrink-0 w-8 py-2 text-base font-bold cursor-pointer select-none flex items-center justify-center" style={{ color: '#F5611A' }}>+</button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             </div>
-                          </div>
-                        )
-                      })}
-                          </div>
                           )}
                         </SortableEjWrapper>
                       )
