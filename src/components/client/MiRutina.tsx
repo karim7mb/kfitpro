@@ -205,8 +205,11 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     if (r) {
       const dias = r.semanas?.[calcSemanaActual(r.fecha_inicio) - 1]?.dias ?? r.dias ?? []
       const idx = getTodayDiaIdx(dias, p?.diasSemana ?? [], p?.diaWorkoutMap ?? {}, p?.semanaOverrides ?? {})
-      setSelectedDiaIdx(idx)
-      const dia = dias[idx]
+      const sesionOverrideId = p?.sesionOverrides?.[todayDateStr()]
+      const overrideIdx = sesionOverrideId ? dias.findIndex(d => d.id === sesionOverrideId) : -1
+      const finalIdx = overrideIdx >= 0 ? overrideIdx : idx
+      setSelectedDiaIdx(finalIdx)
+      const dia = dias[finalIdx]
       if (dia) {
         const initPesos: Record<string, string> = {}
         const initReps: Record<string, string> = {}
@@ -311,7 +314,14 @@ export default function MiRutina({ userName, userId, onToast, date, onDateChange
     ? (rutina.semanas?.[semanaActual - 1]?.dias ?? rutina.dias ?? [])
     : []
 
-  const todayDiaIdx = getTodayDiaIdx(dias, perfil?.diasSemana ?? [], perfil?.diaWorkoutMap ?? {}, perfil?.semanaOverrides ?? {})
+  const sesionOverrideId = perfil?.sesionOverrides?.[todayDateStr()]
+  const todayDiaIdx = (() => {
+    if (sesionOverrideId) {
+      const oi = dias.findIndex(d => d.id === sesionOverrideId)
+      if (oi >= 0) return oi
+    }
+    return getTodayDiaIdx(dias, perfil?.diasSemana ?? [], perfil?.diaWorkoutMap ?? {}, perfil?.semanaOverrides ?? {})
+  })()
   const todayWorkout: DiaRutina | null = dias[selectedDiaIdx] ?? null
 
   const extraEjsForDay = todayWorkout ? (perfil?.ejerciciosExtra?.[todayWorkout.id] ?? []) : []
