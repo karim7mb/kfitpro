@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, Circle, ChevronDown, ChevronUp, Save, Dumbbell, Droplets, Moon, Footprints, Activity } from 'lucide-react'
 import {
-  fetchRutina4Semanas, fetchSesionesLog, upsertSesionLog, fetchProgresoHoy,
-  type Rutina4Semanas, type DiaRutina, type SesionLog, type SerieLog, type ProgresoDiario,
+  fetchRutina4Semanas, fetchSesionesLog, upsertSesionLog, fetchProgresoHoy, fetchPerfilEntrenamiento,
+  type Rutina4Semanas, type DiaRutina, type SesionLog, type SerieLog, type ProgresoDiario, type PerfilEntrenamiento,
 } from '../../../lib/supabase'
 
 interface HoyTabProps {
@@ -14,6 +14,17 @@ interface HoyTabProps {
 function today(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function addDays(base: string, n: number): string {
+  const d = new Date(base + 'T12:00:00')
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getStartOfWeekMon(dateStr: string): string {
+  const dow = (new Date(dateStr + 'T00:00:00').getDay() + 6) % 7
+  return addDays(dateStr, -dow)
 }
 
 function getDayOfWeekIndex(): number {
@@ -31,15 +42,38 @@ function weekdaySlot(i: number, total: number): number {
   return total === 1 ? 0 : Math.round((i * maxSlot) / (total - 1))
 }
 
-function getTodayDia(rutina: Rutina4Semanas): DiaRutina | null {
+function getTodayDia(rutina: Rutina4Semanas, perfil?: PerfilEntrenamiento | null): DiaRutina | null {
   const semana = calcSemanaActual(rutina.fecha_inicio)
   const dias = rutina.semanas?.[semana - 1]?.dias ?? rutina.dias
   if (!dias?.length) return null
+
+  const todayStr = today()
+
+  const sesionOverrideId = perfil?.sesionOverrides?.[todayStr]
+  if (sesionOverrideId) {
+    const found = dias.find(d => d.id === sesionOverrideId)
+    if (found) return found
+  }
+
+  const weekMon = getStartOfWeekMon(todayStr)
+  const weekOverride = perfil?.semanaOverrides?.[weekMon]
+  const effectiveDiaWorkoutMap = weekOverride?.diaWorkoutMap ?? perfil?.diaWorkoutMap
+  const effectiveDiasSemana = weekOverride?.diasSemana ?? perfil?.diasSemana
   const dayIdx = getDayOfWeekIndex()
-  const map: Record<number, number> = {}
-  for (let i = 0; i < dias.length; i++) map[weekdaySlot(i, dias.length)] = i
-  const diaIdx = map[dayIdx]
-  return diaIdx !== undefined ? dias[diaIdx] : null
+
+  if (effectiveDiaWorkoutMap && Object.keys(effectiveDiaWorkoutMap).length > 0) {
+    const slotIdx = effectiveDiaWorkoutMap[dayIdx]
+    return slotIdx !== undefined && dias[slotIdx] !== undefined ? dias[slotIdx] : null
+  } else if (effectiveDiasSemana && effectiveDiasSemana.length > 0) {
+    const sorted = [...effectiveDiasSemana].sort((a, b) => a - b)
+    const pos = sorted.indexOf(dayIdx)
+    return pos >= 0 && dias[pos] !== undefined ? dias[pos] : null
+  } else {
+    const map: Record<number, number> = {}
+    for (let i = 0; i < dias.length; i++) map[weekdaySlot(i, dias.length)] = i
+    const diaIdx2 = map[dayIdx]
+    return diaIdx2 !== undefined ? dias[diaIdx2] : null
+  }
 }
 
 interface EjercicioLogState {
@@ -56,31 +90,46 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
   const [todayDia, setTodayDia] = useState<DiaRutina | null>(null)
   const [semanaActual, setSemanaActual] = useState(1)
   const [recuperacion, setRecuperacion] = useState<ProgresoDiario | null>(null)
+  const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [r, logs, rec] = await Promise.all([
+      const [r, logs, rec, p] = await Promise.all([
         isDemo ? null : fetchRutina4Semanas(clienteId),
         isDemo ? [] : fetchSesionesLog(clienteId),
         isDemo ? null : fetchProgresoHoy(clienteId),
+        isDemo ? null : fetchPerfilEntrenamiento(clienteId),
       ])
       setRecuperacion(rec)
-
+      setPerfil(p)
       setRutina(r)
       const semana = r ? calcSemanaActual(r.fecha_inicio) : 1
       setSemanaActual(semana)
 
       if (r) {
-        const dia = getTodayDia(r)
+        const dia = getTodayDia(r, p)
         setTodayDia(dia)
 
         if (dia) {
+          const ovrMap = p?.ejercicioOverrides ?? {}
+          const ocultos = p?.ejerciciosOcultos?.[dia.id] ?? []
+          const eliminados = p?.ejerciciosEliminados?.[dia.id] ?? []
+          const extras = p?.ejerciciosExtra?.[dia.id] ?? []
+
+          const allEjs = [
+            ...dia.ejercicios.map(ej => ({
+              ...ej,
+              series: ovrMap[ej.id]?.series ?? ej.series,
+            })),
+            ...extras.map(e => ({ ...e, rir: 2, rpe: 8, descanso: 90, superset: false })),
+          ].filter(ej => !ocultos.includes(ej.id) && !eliminados.includes(ej.id))
+
           const existing = logs.find(l => l.fecha === today() && l.dia_id === dia.id)
           if (existing) {
             setSesion(existing)
             const initialLog: Record<string, EjercicioLogState> = {}
-            dia.ejercicios.forEach(ej => {
+            allEjs.forEach(ej => {
               initialLog[ej.id] = {
                 series: existing.series_completadas?.[ej.id] ?? buildEmptySeries(ej.series),
               }
@@ -88,7 +137,7 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
             setEjLog(initialLog)
           } else {
             const initialLog: Record<string, EjercicioLogState> = {}
-            dia.ejercicios.forEach(ej => {
+            allEjs.forEach(ej => {
               initialLog[ej.id] = { series: buildEmptySeries(ej.series) }
             })
             setEjLog(initialLog)
@@ -218,8 +267,28 @@ export default function HoyTab({ clienteId, isDemo, onToast }: HoyTabProps) {
         )}
       </div>
 
-      {/* Exercises */}
-      {todayDia.ejercicios.map(ej => {
+      {/* Exercises — apply client customizations */}
+      {(() => {
+        const ovrMap = perfil?.ejercicioOverrides ?? {}
+        const ocultos = perfil?.ejerciciosOcultos?.[todayDia.id] ?? []
+        const eliminados = perfil?.ejerciciosEliminados?.[todayDia.id] ?? []
+        const extras = perfil?.ejerciciosExtra?.[todayDia.id] ?? []
+        const orden = perfil?.ejercicioOrden?.[todayDia.id]
+        const raw = [
+          ...todayDia.ejercicios.map(ej => ({
+            ...ej,
+            nombre: ovrMap[ej.id]?.nombre ?? ej.nombre,
+            series: ovrMap[ej.id]?.series ?? ej.series,
+            repsMin: ovrMap[ej.id]?.repsMin ?? ej.repsMin,
+            repsMax: ovrMap[ej.id]?.repsMax ?? ej.repsMax,
+          })),
+          ...extras.map(e => ({ ...e, rir: 2, rpe: 8, descanso: 90, superset: false as const })),
+        ].filter(ej => !ocultos.includes(ej.id) && !eliminados.includes(ej.id))
+        const displayEjercicios = orden
+          ? [...raw].sort((a, b) => { const ia = orden.indexOf(a.id), ib = orden.indexOf(b.id); if (ia === -1 && ib === -1) return 0; if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib })
+          : raw
+        return displayEjercicios
+      })().map(ej => {
         const state = ejLog[ej.id] ?? { series: buildEmptySeries(ej.series) }
         const done = state.series.filter(s => s.completada).length
         const isOpen = expandedEj === ej.id
