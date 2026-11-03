@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, Clock, Calendar } from 'lucide-react'
 import {
+  supabase,
   fetchRutina4Semanas, fetchSesionesLog, fetchPerfilEntrenamiento,
   type Rutina4Semanas, type SesionLog, type DiaRutina, type PerfilEntrenamiento,
 } from '../../../lib/supabase'
@@ -186,7 +187,17 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
     }
   }, [clienteId, isDemo])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    if (isDemo) return
+    const channel = supabase
+      .channel(`admin_sesiones_${clienteId}`)
+      .on('postgres_changes', { event: '*', schema: 'kfitpro', table: 'sesiones_log', filter: `cliente_id=eq.${clienteId}` },
+        async () => { setSesiones(await fetchSesionesLog(clienteId)) }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [load])
 
   if (loading) {
     return <div className="flex items-center justify-center h-48 text-gray-400 text-sm">Cargando calendario…</div>
