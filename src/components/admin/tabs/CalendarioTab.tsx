@@ -309,6 +309,10 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
           'Tríceps': '#10B981', 'Bíceps': '#F59E0B', 'Cuádriceps': '#EF4444',
           Isquios: '#06B6D4', 'Glúteos': '#EC4899', Gemelos: '#84CC16', Core: '#6B7280', Otros: '#4B5563',
         }
+        const totalPlan = entries.reduce((s, [, v]) => s + v.plan, 0)
+        const totalDone = entries.reduce((s, [, v]) => s + v.done, 0)
+        const totalFalta = totalPlan - totalDone
+        const totalPct = totalPlan > 0 ? Math.round((totalDone / totalPlan) * 100) : 0
         return (
           <div className="rounded-2xl p-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
             <p className="text-xs font-semibold mb-3" style={{ color: '#6B7280' }}>VOLUMEN SEMANAL</p>
@@ -333,6 +337,26 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
                   </div>
                 )
               })}
+            </div>
+            {/* Total row */}
+            <div className="mt-4 pt-3" style={{ borderTop: '1px solid #1E2130' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold" style={{ color: '#9CA3AF' }}>TOTAL</span>
+                <div className="flex items-center gap-2 text-xs tabular-nums">
+                  <span style={{ color: totalDone >= totalPlan ? '#10B981' : '#F5611A' }}>
+                    {totalDone}<span style={{ color: '#4B5563' }}>/{totalPlan}</span>
+                  </span>
+                  {totalFalta > 0 && (
+                    <span style={{ color: '#4B5563' }}>· faltan {totalFalta}</span>
+                  )}
+                </div>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: '#1E2130' }}>
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(totalPct, 100)}%`, background: totalDone >= totalPlan ? '#10B981' : '#F5611A' }}
+                />
+              </div>
             </div>
           </div>
         )
