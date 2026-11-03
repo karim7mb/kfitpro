@@ -56,8 +56,12 @@ function getTodayDia(rutina: Rutina4Semanas, perfil: PerfilEntrenamiento | null)
   const dias = rutina.semanas?.[semana - 1]?.dias ?? rutina.dias
   if (!dias?.length) return null
   const dayIdx = getDayOfWeekIndex()
-  const diaWorkoutMap: Record<number, number> = perfil?.diaWorkoutMap ?? {}
-  const diasSemana: number[] = perfil?.diasSemana ?? []
+
+  // Per-week override takes priority
+  const currentWeekMon = getStartOfWeekMon(todayStr())
+  const weekOverride = perfil?.semanaOverrides?.[currentWeekMon]
+  const diaWorkoutMap: Record<number, number> = weekOverride?.diaWorkoutMap ?? perfil?.diaWorkoutMap ?? {}
+  const diasSemana: number[] = weekOverride?.diasSemana ?? perfil?.diasSemana ?? []
 
   if (Object.keys(diaWorkoutMap).length > 0) {
     const slot = diaWorkoutMap[dayIdx]

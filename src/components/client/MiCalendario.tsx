@@ -62,6 +62,7 @@ function buildCalendar(
   diasSemana: number[],
   sesionOverrides: Record<string, string>,
   diaWorkoutMap?: Record<number, number>,
+  semanaOverrides?: Record<string, { diasSemana: number[], diaWorkoutMap: Record<number, number> }>,
 ): CalDay[][] {
   const fechaInicio = rutina.fecha_inicio
   if (!fechaInicio) return []
@@ -95,13 +96,18 @@ function buildCalendar(
     const total = dias.length
     const diasMap = new Map<number, DiaRutina>()
 
-    if (diaWorkoutMap && Object.keys(diaWorkoutMap).length > 0) {
-      for (const [dayStr, slotIdx] of Object.entries(diaWorkoutMap)) {
+    // Per-week override takes priority over permanent schedule
+    const weekOverride = semanaOverrides?.[weekStart]
+    const effectiveDiaWorkoutMap = weekOverride?.diaWorkoutMap ?? diaWorkoutMap
+    const effectiveDiasSemana = weekOverride?.diasSemana ?? diasSemana
+
+    if (effectiveDiaWorkoutMap && Object.keys(effectiveDiaWorkoutMap).length > 0) {
+      for (const [dayStr, slotIdx] of Object.entries(effectiveDiaWorkoutMap)) {
         const day = Number(dayStr)
         if (dias[slotIdx] !== undefined) diasMap.set(day, dias[slotIdx])
       }
-    } else if (diasSemana.length > 0) {
-      const sorted = [...diasSemana].sort((a, b) => a - b)
+    } else if (effectiveDiasSemana.length > 0) {
+      const sorted = [...effectiveDiasSemana].sort((a, b) => a - b)
       dias.forEach((dia, i) => { if (i < sorted.length) diasMap.set(sorted[i], dia) })
     } else {
       const maxSlot = total <= 5 ? 4 : 6
@@ -147,6 +153,7 @@ function DayPickerModal({
   workoutMap,
   workoutTitles,
   saving,
+  hasWeekOverride,
   onConfirm,
   onClose,
 }: {
@@ -155,10 +162,12 @@ function DayPickerModal({
   workoutMap: Record<number, number>
   workoutTitles: string[]
   saving: boolean
-  onConfirm: (dias: number[], map: Record<number, number>) => void
+  hasWeekOverride: boolean
+  onConfirm: (dias: number[], map: Record<number, number>, soloEstaSemana: boolean) => void
   onClose: () => void
 }) {
   const [step, setStep] = useState<1 | 2>(1)
+  const [soloEstaSemana, setSoloEstaSemana] = useState(hasWeekOverride)
   const [localDias, setLocalDias] = useState<number[]>(selected)
   const [localMap, setLocalMap] = useState<Record<number, number>>(() => {
     // Initialise from existing map, defaulting unset days to sequential order
@@ -204,6 +213,24 @@ function DayPickerModal({
           <h3 className="font-bold text-white">{step === 1 ? 'Mis días de entreno' : 'Asignar entrenamientos'}</h3>
           <button onClick={step === 2 ? () => setStep(1) : onClose} className="p-1.5 rounded-lg cursor-pointer" style={{ background: '#1E2130', color: '#9CA3AF' }}>
             {step === 2 ? <span className="text-xs px-1">← Volver</span> : <X size={16} />}
+          </button>
+        </div>
+
+        {/* Solo esta semana / Permanente toggle */}
+        <div className="flex gap-1 mb-4 p-1 rounded-xl" style={{ background: '#0D0E13' }}>
+          <button
+            onClick={() => setSoloEstaSemana(false)}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+            style={{ background: !soloEstaSemana ? '#F5611A' : 'transparent', color: !soloEstaSemana ? 'white' : '#6B7280' }}
+          >
+            Permanente
+          </button>
+          <button
+            onClick={() => setSoloEstaSemana(true)}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+            style={{ background: soloEstaSemana ? '#8B5CF6' : 'transparent', color: soloEstaSemana ? 'white' : '#6B7280' }}
+          >
+            Solo esta semana
           </button>
         </div>
 
@@ -271,12 +298,12 @@ function DayPickerModal({
               ))}
             </div>
             <button
-              onClick={() => !saving && onConfirm(localDias, localMap)}
+              onClick={() => !saving && onConfirm(localDias, localMap, soloEstaSemana)}
               disabled={saving}
               className="w-full py-3 rounded-xl text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
-              style={{ background: '#F5611A', color: 'white', opacity: saving ? 0.7 : 1 }}
+              style={{ background: soloEstaSemana ? '#8B5CF6' : '#F5611A', color: 'white', opacity: saving ? 0.7 : 1 }}
             >
-              {saving ? <><Loader2 size={14} className="animate-spin" /> Guardando...</> : 'Guardar horario'}
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Guardando...</> : soloEstaSemana ? 'Guardar solo esta semana' : 'Guardar horario'}
             </button>
           </>
         )}
@@ -387,7 +414,7 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
     prevHighlight.current = highlightDate
     const overrides = perfil?.sesionOverrides ?? {}
     const dias = perfil?.diasSemana ?? []
-    const allDays = buildCalendar(rutina, sesiones, dias, overrides, perfil?.diaWorkoutMap ?? {}).flat()
+    const allDays = buildCalendar(rutina, sesiones, dias, overrides, perfil?.diaWorkoutMap ?? {}, perfil?.semanaOverrides ?? {}).flat()
     const found = allDays.find(d => d.date === highlightDate)
     if (found) setSelected(found)
   }, [highlightDate, loading, rutina, sesiones, perfil])
@@ -395,6 +422,8 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
   const diasSemana: number[] = perfil?.diasSemana ?? []
   const diaWorkoutMap: Record<number, number> = perfil?.diaWorkoutMap ?? {}
   const sesionOverrides: Record<string, string> = perfil?.sesionOverrides ?? {}
+  const semanaOverrides: Record<string, { diasSemana: number[], diaWorkoutMap: Record<number, number> }> = perfil?.semanaOverrides ?? {}
+  const currentWeekMon = getStartOfWeekMon(todayStr())
 
   const getOrCreatePerfil = (): PerfilEntrenamiento =>
     perfil ?? {
@@ -414,18 +443,30 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
     }
   }
 
-  const saveDiasSemana = async (newDias: number[], newWorkoutMap: Record<number, number>) => {
+  const saveDiasSemana = async (newDias: number[], newWorkoutMap: Record<number, number>, soloEstaSemana: boolean) => {
     setSaving(true)
     try {
-      const updated: PerfilEntrenamiento = {
-        ...getOrCreatePerfil(),
-        diasSemana: newDias.sort((a, b) => a - b),
-        diaWorkoutMap: newWorkoutMap,
+      let updated: PerfilEntrenamiento
+      if (soloEstaSemana) {
+        const newSemanaOverrides = {
+          ...semanaOverrides,
+          [currentWeekMon]: { diasSemana: newDias.sort((a, b) => a - b), diaWorkoutMap: newWorkoutMap },
+        }
+        updated = { ...getOrCreatePerfil(), semanaOverrides: newSemanaOverrides }
+      } else {
+        const newSemanaOverrides = { ...semanaOverrides }
+        delete newSemanaOverrides[currentWeekMon]
+        updated = {
+          ...getOrCreatePerfil(),
+          diasSemana: newDias.sort((a, b) => a - b),
+          diaWorkoutMap: newWorkoutMap,
+          semanaOverrides: newSemanaOverrides,
+        }
       }
       await updatePerfilEntrenamiento(userId, updated)
       setPerfil(updated)
       setShowDayPicker(false)
-      onToast?.('Horario guardado ✓', 'success')
+      onToast?.(soloEstaSemana ? 'Horario de esta semana guardado ✓' : 'Horario guardado ✓', 'success')
     } catch (e) {
       handleRlsError(e)
     } finally {
@@ -482,7 +523,7 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
   }
 
   const numSesiones = rutina.dias?.length ?? 0
-  const calendar = buildCalendar(rutina, sesiones, diasSemana, sesionOverrides, diaWorkoutMap)
+  const calendar = buildCalendar(rutina, sesiones, diasSemana, sesionOverrides, diaWorkoutMap, semanaOverrides)
   const allDaysList = calendar.flat()
   const totalSessions = allDaysList.filter(d => d.dia !== null).length
   const completedSessions = allDaysList.filter(d => d.sesion?.completada).length
@@ -504,10 +545,11 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
       {showDayPicker && (
         <DayPickerModal
           numSesiones={numSesiones}
-          selected={diasSemana}
-          workoutMap={diaWorkoutMap}
+          selected={semanaOverrides[currentWeekMon]?.diasSemana ?? diasSemana}
+          workoutMap={semanaOverrides[currentWeekMon]?.diaWorkoutMap ?? diaWorkoutMap}
           workoutTitles={(rutina.semanas?.[0]?.dias ?? rutina.dias ?? []).map(d => d.titulo)}
           saving={saving}
+          hasWeekOverride={!!semanaOverrides[currentWeekMon]}
           onConfirm={saveDiasSemana}
           onClose={() => setShowDayPicker(false)}
         />
