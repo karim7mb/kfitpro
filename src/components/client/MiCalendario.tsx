@@ -57,16 +57,16 @@ interface CalDay {
 }
 
 const GRUPO_KEYWORDS: [string, string[]][] = [
-  ['Pecho',    ['press banca', 'press inclin', 'press plano', 'aperturas', 'mariposa', 'pec deck', 'flies', 'cruce polea', 'fondos pecho', 'chest']],
-  ['Dorsales', ['remo', 'jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'dorsal', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ', 'espalda']],
-  ['Hombros',  ['press militar', 'press hombro', 'elevación lateral', 'elevacion lateral', 'elevación frontal', 'elevacion frontal', 'arnold', 'face pull', 'pájaros', 'pajaros', 'deltoid', 'hombro']],
-  ['Tríceps',  ['extensión', 'extension', 'tríceps', 'triceps', 'press estrecho', 'fondos tríceps', 'fondos triceps', 'patada triceps', 'kickback']],
-  ['Bíceps',   ['curl', 'bíceps', 'biceps', 'rosca', 'martillo', 'hammer', 'predicador']],
-  ['Cuádriceps',['sentadilla', 'squat', 'prensa', 'leg press', 'extensión pierna', 'extension pierna', 'hack', 'pistol', 'lunge', 'zancada', 'cuádricep', 'cuadricep']],
-  ['Isquios',  ['peso muerto', 'deadlift', 'curl femoral', 'curl isquio', 'femoral', 'isquio', 'buenos días', 'buenos dias', 'rdl', 'rumano', 'nordico']],
-  ['Glúteos',  ['hip thrust', 'glúteo', 'gluteo', 'patada trasera', 'puente', 'abductor', 'kickback glút']],
-  ['Gemelos',  ['gemelo', 'pantorrilla', 'elevación talón', 'elevacion talon', 'calf', 'soleo']],
-  ['Core',     ['plancha', 'plank', 'crunch', 'encogimiento', 'oblicuo', 'abdomen', 'abdominal', 'core', 'rotación', 'rotacion', 'ab ']],
+  ['Pecho',       ['press banca', 'press inclin', 'press plano', 'apertura', 'mariposa', 'pec deck', 'flies', 'cruce polea', 'fondos pecho', 'chest', 'press declin']],
+  ['Dorsales',    ['remo', 'jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'dorsal', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ', 'espalda', 'seated row', 'cable row']],
+  ['Hombros',     ['press militar', 'press hombro', 'press arnold', 'arnold', 'elevaci', 'face pull', 'pájaros', 'pajaros', 'deltoid', 'hombro', 'vuelo lateral', 'vuelo frontal', 'lateral raise', 'front raise']],
+  ['Tríceps',     ['tríceps', 'triceps', 'extensión', 'extension', 'press estrecho', 'press codos', 'codos cerrados', 'francés', 'frances', 'skull', 'fondos tríceps', 'fondos triceps', 'patada', 'kickback', 'overhead tri', 'pushdown', 'jale tríceps', 'jale triceps', 'rope tricep']],
+  ['Bíceps',      ['curl', 'bíceps', 'biceps', 'rosca', 'martillo', 'hammer', 'predicador', 'scott']],
+  ['Cuádriceps',  ['sentadilla', 'squat', 'prensa', 'leg press', 'extensión pierna', 'extension pierna', 'hack', 'pistol', 'lunge', 'zancada', 'cuádricep', 'cuadricep']],
+  ['Isquios',     ['peso muerto', 'deadlift', 'curl femoral', 'curl isquio', 'femoral', 'isquio', 'buenos días', 'buenos dias', 'rdl', 'rumano', 'nordico']],
+  ['Glúteos',     ['hip thrust', 'glúteo', 'gluteo', 'patada trasera', 'puente de', 'abductor', 'kickback glút']],
+  ['Gemelos',     ['gemelo', 'pantorrilla', 'elevación talón', 'elevacion talon', 'calf', 'soleo']],
+  ['Core',        ['plancha', 'plank', 'crunch', 'encogimiento abdom', 'oblicuo', 'abdomen', 'abdominal', 'core', 'rotación', 'rotacion']],
 ]
 
 function getGrupoMuscular(nombre: string): string {
