@@ -701,7 +701,7 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
       {(() => {
         const currentWeek = calendar.find(week => week.some(d => d.isToday)) ?? calendar.find(week => !week.every(d => d.isPast))
         if (!currentWeek) return null
-        const volumen: Record<string, number> = {}
+        const volumen: Record<string, { plan: number; done: number }> = {}
         for (const day of currentWeek) {
           if (!day.dia) continue
           const diaId = day.dia.id
@@ -711,20 +711,22 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
           const extra = perfil?.ejerciciosExtra?.[diaId] ?? []
           const ejs = [
             ...day.dia.ejercicios.map(ej => ({
+              id: ej.id,
               nombre: ovr[ej.id]?.nombre ?? ej.nombre,
               series: ovr[ej.id]?.series ?? ej.series,
-              id: ej.id,
             })),
-            ...extra.map(e => ({ nombre: e.nombre, series: e.series, id: e.id })),
+            ...extra.map(e => ({ id: e.id, nombre: e.nombre, series: e.series })),
           ].filter(e => !ocultos.includes(e.id) && !eliminados.includes(e.id))
           for (const ej of ejs) {
             const grupo = getGrupoMuscular(ej.nombre)
-            volumen[grupo] = (volumen[grupo] ?? 0) + ej.series
+            if (!volumen[grupo]) volumen[grupo] = { plan: 0, done: 0 }
+            volumen[grupo].plan += ej.series
+            const completadas = day.sesion?.series_completadas?.[ej.id]
+            volumen[grupo].done += completadas?.filter(s => s.completada).length ?? 0
           }
         }
-        const entries = Object.entries(volumen).sort((a, b) => b[1] - a[1])
+        const entries = Object.entries(volumen).sort((a, b) => b[1].plan - a[1].plan)
         if (!entries.length) return null
-        const maxSeries = entries[0][1]
         const GRUPO_COLORS: Record<string, string> = {
           Pecho: '#F5611A', Dorsales: '#8B5CF6', Hombros: '#3B82F6',
           'Tríceps': '#10B981', 'Bíceps': '#F59E0B', 'Cuádriceps': '#EF4444',
@@ -732,21 +734,24 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
         }
         return (
           <div className="rounded-2xl p-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
-            <p className="text-xs font-semibold mb-3" style={{ color: '#6B7280' }}>
-              VOLUMEN SEMANAL
-            </p>
-            <div className="space-y-2.5">
-              {entries.map(([grupo, series]) => {
+            <p className="text-xs font-semibold mb-3" style={{ color: '#6B7280' }}>VOLUMEN SEMANAL</p>
+            <div className="space-y-3">
+              {entries.map(([grupo, { plan, done }]) => {
                 const color = GRUPO_COLORS[grupo] ?? '#F5611A'
-                const pct = Math.round((series / maxSeries) * 100)
+                const pct = Math.round((done / plan) * 100)
                 return (
                   <div key={grupo}>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs font-medium" style={{ color: '#D1D5DB' }}>{grupo}</span>
-                      <span className="text-xs font-bold" style={{ color }}>{series} series</span>
+                      <span className="text-xs font-bold tabular-nums" style={{ color: done >= plan ? '#10B981' : color }}>
+                        {done}<span style={{ color: '#4B5563' }}>/{plan}</span>
+                      </span>
                     </div>
-                    <div className="h-1.5 rounded-full" style={{ background: '#1E2130' }}>
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: '#1E2130' }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(pct, 100)}%`, background: done >= plan ? '#10B981' : color }}
+                      />
                     </div>
                   </div>
                 )
