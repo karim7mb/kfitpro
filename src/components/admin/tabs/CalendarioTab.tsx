@@ -139,6 +139,7 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
   const [sesionOverrides, setSesionOverrides] = useState<Record<string, string>>({})
   const [diaWorkoutMap, setDiaWorkoutMap] = useState<Record<number, number>>({})
   const [semanaOverrides, setSemanaOverrides] = useState<PerfilEntrenamiento['semanaOverrides']>({})
+  const [perfil, setPerfil] = useState<PerfilEntrenamiento | null>(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<CalDay | null>(null)
 
@@ -153,6 +154,7 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
       ])
       setRutina(r)
       setSesiones(logs)
+      setPerfil(perfil)
       setDiasSemana(perfil?.diasSemana ?? [])
       setSesionOverrides(perfil?.sesionOverrides ?? {})
       setDiaWorkoutMap(perfil?.diaWorkoutMap ?? {})
@@ -241,7 +243,7 @@ export default function CalendarioTab({ clienteId, isDemo, onToast: _onToast }: 
 
       {/* Day detail */}
       {selected && (
-        <DayDetail day={selected} />
+        <DayDetail day={selected} perfil={perfil} />
       )}
 
       {/* Legend */}
@@ -306,9 +308,32 @@ function DayCell({ day, onClick, isSelected }: { day: CalDay; onClick: () => voi
   )
 }
 
-function DayDetail({ day }: { day: CalDay }) {
+function DayDetail({ day, perfil }: { day: CalDay; perfil: PerfilEntrenamiento | null }) {
   const date = new Date(day.date + 'T00:00:00')
   const label = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  const displayEjercicios = (() => {
+    if (!day.dia) return []
+    const diaId = day.dia.id
+    const ovrMap = perfil?.ejercicioOverrides ?? {}
+    const ocultos = perfil?.ejerciciosOcultos?.[diaId] ?? []
+    const eliminados = perfil?.ejerciciosEliminados?.[diaId] ?? []
+    const extras = perfil?.ejerciciosExtra?.[diaId] ?? []
+    const orden = perfil?.ejercicioOrden?.[diaId]
+    const raw = [
+      ...day.dia.ejercicios.map(ej => ({
+        ...ej,
+        nombre: ovrMap[ej.id]?.nombre ?? ej.nombre,
+        series: ovrMap[ej.id]?.series ?? ej.series,
+        repsMin: ovrMap[ej.id]?.repsMin ?? ej.repsMin,
+        repsMax: ovrMap[ej.id]?.repsMax ?? ej.repsMax,
+      })),
+      ...extras.map(e => ({ ...e, rir: 2, rpe: 8, descanso: 90, superset: false as const })),
+    ].filter(ej => !ocultos.includes(ej.id) && !eliminados.includes(ej.id))
+    return orden
+      ? [...raw].sort((a, b) => { const ia = orden.indexOf(a.id), ib = orden.indexOf(b.id); if (ia === -1 && ib === -1) return 0; if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib })
+      : raw
+  })()
 
   return (
     <div className="rounded-2xl p-4 space-y-3" style={{ background: '#1A1D2E', border: '1px solid #2a2d3e' }}>
@@ -326,7 +351,7 @@ function DayDetail({ day }: { day: CalDay }) {
         <>
           <p className="text-sm font-medium" style={{ color: '#F5611A' }}>{day.dia.titulo}</p>
           <div className="space-y-1.5">
-            {day.dia.ejercicios.map(ej => {
+            {displayEjercicios.map(ej => {
               const log = day.sesion?.series_completadas?.[ej.id]
               const done = log?.filter(s => s.completada).length ?? 0
               return (
