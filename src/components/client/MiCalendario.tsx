@@ -801,12 +801,15 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
                 })),
                 ...extra,
               ].filter(e => !ocultos.includes(e.id) && !eliminados.includes(e.id))
-              const displayEjs = orden
+              const sorted = orden
                 ? [...raw].sort((a, b) => {
                     const ai = orden.indexOf(a.id); const bi = orden.indexOf(b.id)
                     return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi)
                   })
                 : raw
+              const displayEjs = selected.sesion
+                ? sorted.filter(ej => (selected.sesion?.series_completadas?.[ej.id]?.filter(s => s.completada).length ?? 0) > 0)
+                : sorted
               return (
             <>
               <p className="text-sm font-medium" style={{ color: '#F5611A' }}>{selected.dia.titulo}</p>
