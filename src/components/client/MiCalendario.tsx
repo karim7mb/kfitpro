@@ -697,11 +697,36 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
             </div>
           </div>
 
-          {selected.dia ? (
+          {selected.dia ? (() => {
+              const diaId = selected.dia.id
+              const ocultos = perfil?.ejerciciosOcultos?.[diaId] ?? []
+              const eliminados = perfil?.ejerciciosEliminados?.[diaId] ?? []
+              const ovr = perfil?.ejercicioOverrides ?? {}
+              const extra = (perfil?.ejerciciosExtra?.[diaId] ?? []).map(e => ({
+                id: e.id, nombre: e.nombre, series: e.series, repsMin: e.repsMin, repsMax: e.repsMax,
+              }))
+              const orden = perfil?.ejercicioOrden?.[diaId]
+              const raw = [
+                ...selected.dia.ejercicios.map(ej => ({
+                  id: ej.id,
+                  nombre: ovr[ej.id]?.nombre ?? ej.nombre,
+                  series: ovr[ej.id]?.series ?? ej.series,
+                  repsMin: ovr[ej.id]?.repsMin ?? ej.repsMin,
+                  repsMax: ovr[ej.id]?.repsMax ?? ej.repsMax,
+                })),
+                ...extra,
+              ].filter(e => !ocultos.includes(e.id) && !eliminados.includes(e.id))
+              const displayEjs = orden
+                ? [...raw].sort((a, b) => {
+                    const ai = orden.indexOf(a.id); const bi = orden.indexOf(b.id)
+                    return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi)
+                  })
+                : raw
+              return (
             <>
               <p className="text-sm font-medium" style={{ color: '#F5611A' }}>{selected.dia.titulo}</p>
               <div className="space-y-1.5">
-                {selected.dia.ejercicios.map(ej => {
+                {displayEjs.map(ej => {
                   const log = selected.sesion?.series_completadas?.[ej.id]
                   const done = log?.filter(s => s.completada).length ?? 0
                   return (
@@ -730,7 +755,8 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
                 </button>
               )}
             </>
-          ) : (
+              )
+            })() : (
             <div className="flex items-center justify-between">
               <p className="text-sm" style={{ color: '#6B7280' }}>Día de descanso</p>
               {!selected.isPast && (
