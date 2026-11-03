@@ -57,10 +57,10 @@ interface CalDay {
 }
 
 const GRUPO_KEYWORDS: [string, string[]][] = [
-  ['Pecho',       ['press banca', 'press inclin', 'press plano', 'apertura', 'mariposa', 'pec deck', 'flies', 'cruce polea', 'fondos pecho', 'chest', 'press declin']],
+  ['Pecho',       ['press banca', 'press inclin', 'press plano', 'apertura', 'mariposa', 'pec deck', 'flies', 'cruce polea', 'fondos pecho', 'chest', 'press declin', 'press máquina', 'press maquina']],
   ['Dorsales',    ['remo', 'jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'dorsal', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ', 'espalda', 'seated row', 'cable row']],
   ['Hombros',     ['press militar', 'press hombro', 'press arnold', 'arnold', 'elevaci', 'face pull', 'pájaros', 'pajaros', 'deltoid', 'hombro', 'vuelo lateral', 'vuelo frontal', 'lateral raise', 'front raise']],
-  ['Tríceps',     ['tríceps', 'triceps', 'extensión', 'extension', 'press estrecho', 'press codos', 'codos cerrados', 'francés', 'frances', 'skull', 'fondos tríceps', 'fondos triceps', 'patada', 'kickback', 'overhead tri', 'pushdown', 'jale tríceps', 'jale triceps', 'rope tricep']],
+  ['Tríceps',     ['tríceps', 'triceps', 'extensión', 'extension', 'press estrecho', 'press codos', 'codos cerrados', 'franc', 'skull', 'fondos tríceps', 'fondos triceps', 'patada', 'kickback', 'overhead tri', 'pushdown', 'jale tríceps', 'jale triceps', 'rope tricep']],
   ['Bíceps',      ['curl', 'bíceps', 'biceps', 'rosca', 'martillo', 'hammer', 'predicador', 'scott']],
   ['Cuádriceps',  ['sentadilla', 'squat', 'prensa', 'leg press', 'extensión pierna', 'extension pierna', 'hack', 'pistol', 'lunge', 'zancada', 'cuádricep', 'cuadricep']],
   ['Isquios',     ['peso muerto', 'deadlift', 'curl femoral', 'curl isquio', 'femoral', 'isquio', 'buenos días', 'buenos dias', 'rdl', 'rumano', 'nordico']],
