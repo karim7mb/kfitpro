@@ -56,6 +56,27 @@ interface CalDay {
   isOverride: boolean
 }
 
+const GRUPO_KEYWORDS: [string, string[]][] = [
+  ['Pecho',    ['press banca', 'press inclin', 'press plano', 'aperturas', 'mariposa', 'pec deck', 'flies', 'cruce polea', 'fondos pecho', 'chest']],
+  ['Dorsales', ['remo', 'jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'dorsal', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ', 'espalda']],
+  ['Hombros',  ['press militar', 'press hombro', 'elevación lateral', 'elevacion lateral', 'elevación frontal', 'elevacion frontal', 'arnold', 'face pull', 'pájaros', 'pajaros', 'deltoid', 'hombro']],
+  ['Tríceps',  ['extensión', 'extension', 'tríceps', 'triceps', 'press estrecho', 'fondos tríceps', 'fondos triceps', 'patada triceps', 'kickback']],
+  ['Bíceps',   ['curl', 'bíceps', 'biceps', 'rosca', 'martillo', 'hammer', 'predicador']],
+  ['Cuádriceps',['sentadilla', 'squat', 'prensa', 'leg press', 'extensión pierna', 'extension pierna', 'hack', 'pistol', 'lunge', 'zancada', 'cuádricep', 'cuadricep']],
+  ['Isquios',  ['peso muerto', 'deadlift', 'curl femoral', 'curl isquio', 'femoral', 'isquio', 'buenos días', 'buenos dias', 'rdl', 'rumano', 'nordico']],
+  ['Glúteos',  ['hip thrust', 'glúteo', 'gluteo', 'patada trasera', 'puente', 'abductor', 'kickback glút']],
+  ['Gemelos',  ['gemelo', 'pantorrilla', 'elevación talón', 'elevacion talon', 'calf', 'soleo']],
+  ['Core',     ['plancha', 'plank', 'crunch', 'encogimiento', 'oblicuo', 'abdomen', 'abdominal', 'core', 'rotación', 'rotacion', 'ab ']],
+]
+
+function getGrupoMuscular(nombre: string): string {
+  const lower = nombre.toLowerCase()
+  for (const [grupo, keywords] of GRUPO_KEYWORDS) {
+    if (keywords.some(kw => lower.includes(kw))) return grupo
+  }
+  return 'Otros'
+}
+
 function buildCalendar(
   rutina: Rutina4Semanas,
   sesiones: SesionLog[],
@@ -675,6 +696,65 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
           )
         })}
       </div>
+
+      {/* Volumen semanal */}
+      {(() => {
+        const currentWeek = calendar.find(week => week.some(d => d.isToday)) ?? calendar.find(week => !week.every(d => d.isPast))
+        if (!currentWeek) return null
+        const volumen: Record<string, number> = {}
+        for (const day of currentWeek) {
+          if (!day.dia) continue
+          const diaId = day.dia.id
+          const ocultos = perfil?.ejerciciosOcultos?.[diaId] ?? []
+          const eliminados = perfil?.ejerciciosEliminados?.[diaId] ?? []
+          const ovr = perfil?.ejercicioOverrides ?? {}
+          const extra = perfil?.ejerciciosExtra?.[diaId] ?? []
+          const ejs = [
+            ...day.dia.ejercicios.map(ej => ({
+              nombre: ovr[ej.id]?.nombre ?? ej.nombre,
+              series: ovr[ej.id]?.series ?? ej.series,
+              id: ej.id,
+            })),
+            ...extra.map(e => ({ nombre: e.nombre, series: e.series, id: e.id })),
+          ].filter(e => !ocultos.includes(e.id) && !eliminados.includes(e.id))
+          for (const ej of ejs) {
+            const grupo = getGrupoMuscular(ej.nombre)
+            volumen[grupo] = (volumen[grupo] ?? 0) + ej.series
+          }
+        }
+        const entries = Object.entries(volumen).sort((a, b) => b[1] - a[1])
+        if (!entries.length) return null
+        const maxSeries = entries[0][1]
+        const GRUPO_COLORS: Record<string, string> = {
+          Pecho: '#F5611A', Dorsales: '#8B5CF6', Hombros: '#3B82F6',
+          'Tríceps': '#10B981', 'Bíceps': '#F59E0B', 'Cuádriceps': '#EF4444',
+          Isquios: '#06B6D4', 'Glúteos': '#EC4899', Gemelos: '#84CC16', Core: '#6B7280', Otros: '#4B5563',
+        }
+        return (
+          <div className="rounded-2xl p-4" style={{ background: '#161820', border: '1px solid #1E2130' }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: '#6B7280' }}>
+              VOLUMEN SEMANAL
+            </p>
+            <div className="space-y-2.5">
+              {entries.map(([grupo, series]) => {
+                const color = GRUPO_COLORS[grupo] ?? '#F5611A'
+                const pct = Math.round((series / maxSeries) * 100)
+                return (
+                  <div key={grupo}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium" style={{ color: '#D1D5DB' }}>{grupo}</span>
+                      <span className="text-xs font-bold" style={{ color }}>{series} series</span>
+                    </div>
+                    <div className="h-1.5 rounded-full" style={{ background: '#1E2130' }}>
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Detalle día seleccionado */}
       {selected && (
