@@ -58,7 +58,8 @@ interface CalDay {
 
 const GRUPO_KEYWORDS: [string, string[]][] = [
   ['Pecho',       ['press banca', 'press inclin', 'press plano', 'apertura', 'mariposa', 'pec deck', 'flies', 'cruce polea', 'fondos pecho', 'chest', 'press declin', 'press máquina', 'press maquina']],
-  ['Dorsales',    ['remo', 'jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'dorsal', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ', 'espalda', 'seated row', 'cable row']],
+  ['Dorsales',    ['jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ']],
+  ['Espalda Alta', ['remo', 'dorsal', 'seated row', 'cable row', 'espalda']],
   ['Hombros',     ['press militar', 'press hombro', 'press arnold', 'arnold', 'elevaci', 'face pull', 'pájaros', 'pajaros', 'deltoid', 'hombro', 'vuelo lateral', 'vuelo frontal', 'lateral raise', 'front raise']],
   ['Tríceps',     ['tríceps', 'triceps', 'extensión', 'extension', 'press estrecho', 'press codos', 'codos cerrados', 'franc', 'skull', 'fondos tríceps', 'fondos triceps', 'patada', 'kickback', 'overhead tri', 'pushdown', 'jale tríceps', 'jale triceps', 'rope tricep']],
   ['Bíceps',      ['curl', 'bíceps', 'biceps', 'rosca', 'martillo', 'hammer', 'predicador', 'scott']],
@@ -728,7 +729,7 @@ export default function MiCalendario({ userId, highlightDate, onToast }: MiCalen
         const entries = Object.entries(volumen).sort((a, b) => b[1].plan - a[1].plan)
         if (!entries.length) return null
         const GRUPO_COLORS: Record<string, string> = {
-          Pecho: '#F5611A', Dorsales: '#8B5CF6', Hombros: '#3B82F6',
+          Pecho: '#F5611A', Dorsales: '#8B5CF6', 'Espalda Alta': '#0EA5E9', Hombros: '#3B82F6',
           'Tríceps': '#10B981', 'Bíceps': '#F59E0B', 'Cuádriceps': '#EF4444',
           Isquios: '#06B6D4', 'Glúteos': '#EC4899', Gemelos: '#84CC16', Core: '#6B7280', Otros: '#4B5563',
         }
