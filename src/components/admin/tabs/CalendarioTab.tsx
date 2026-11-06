@@ -47,7 +47,7 @@ interface CalDay {
 
 const GRUPO_KEYWORDS: [string, string[]][] = [
   ['Pecho',       ['press banca', 'press inclin', 'press plano', 'apertura', 'mariposa', 'pec deck', 'flies', 'cruce polea', 'fondos pecho', 'chest', 'press declin', 'press máquina', 'press maquina']],
-  ['Dorsales',    ['jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ', 'dorsal']],
+  ['Dorsales',    ['jalón', 'jalon', 'dominadas', 'pulldown', 'pull-up', 'pull up', 'polea al pecho', 'polea alta', 'agarre abierto', 'agarre cerrado', 'lat ', 'dorsal', 'soporte pectoral']],
   ['Espalda Alta', ['remo', 'seated row', 'cable row', 'espalda']],
   ['Hombros',     ['press militar', 'press hombro', 'press arnold', 'arnold', 'elevaci', 'face pull', 'pájaros', 'pajaros', 'deltoid', 'hombro', 'vuelo lateral', 'vuelo frontal', 'lateral raise', 'front raise']],
   ['Tríceps',     ['tríceps', 'triceps', 'extensión', 'extension', 'press estrecho', 'press codos', 'codos cerrados', 'franc', 'skull', 'fondos tríceps', 'fondos triceps', 'patada', 'kickback', 'overhead tri', 'pushdown', 'jale tríceps', 'jale triceps', 'rope tricep']],
